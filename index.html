@@ -2,14 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Persona Matcher</title>
 
-<!-- ——— Simple styling ——— -->
 <style>
   body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-       padding:2rem;max-width:680px;margin:auto;background:#f7f7f9;color:#222}
-  h1{font-size:1.6rem;margin-top:0}
+       max-width:680px;margin:2rem auto;background:#f7f7f9;padding:2rem;color:#222}
   input[type=text]{width:100%;padding:0.6rem;border:1px solid #bbb;border-radius:4px}
   button{margin-top:0.8rem;padding:0.6rem 1.2rem;border:0;border-radius:4px;
          background:#0066ff;color:#fff;font-weight:600;cursor:pointer}
@@ -20,54 +18,43 @@
   #toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);
          background:#222;color:#fff;padding:0.7rem 1rem;border-radius:4px;display:none}
 </style>
-
-<!-- ——— PWA manifest (inline) ——— -->
-<link rel="manifest" href="data:application/manifest+json;charset=utf-8,{
-  &quot;name&quot;:&quot;Persona Matcher&quot;,
-  &quot;short_name&quot;:&quot;Matcher&quot;,
-  &quot;start_url&quot;:&quot;./index.html&quot;,
-  &quot;display&quot;:&quot;standalone&quot;,
-  &quot;background_color&quot;:&quot;#ffffff&quot;,
-  &quot;theme_color&quot;:&quot;#0066ff&quot;
-}">
-
-<!-- ——— Service-worker registration ——— -->
-<script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(console.error);
-}
-</script>
 </head>
 <body>
 <h1>Persona Matcher</h1>
 
-<input id="urlInput" type="text" placeholder="Paste a web page URL (e.g. https://example.com/article)">
-<button id="matchBtn" onclick="fetchPersonas()">Match personas</button>
+<input id="urlInput" type="text" placeholder="Paste a web-page URL">
+<button id="matchBtn">Match personas</button>
 
 <div id="results"></div>
-
 <div id="toast"></div>
 
 <script>
-/* Optional: auto-fill from ?url=… */
-window.addEventListener('DOMContentLoaded',()=>{
-  const u=new URLSearchParams(location.search).get('url');
-  if(u){document.getElementById('urlInput').value=u;fetchPersonas();}
-});
+const WEBHOOK_URL = "https://ovhpersonas.app.n8n.cloud/webhook-test/4416ff12-adef-445f-a1d7-d7a7731a8e3d";
 
+/* ------------ helpers ------------ */
+function toast(msg,ms=2500){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.display='block';
+  setTimeout(()=>t.style.display='none',ms);
+}
+function setLoading(on){
+  document.getElementById('matchBtn').disabled=on;
+}
+
+/* ------------ main flow ------------ */
 async function fetchPersonas(){
   const url=document.getElementById('urlInput').value.trim();
   if(!url) return toast('Please enter a URL');
-  setLoading(true);
 
+  setLoading(true);
   try{
-    const res=await fetch('https://ovhpersonas.app.n8n.cloud/webhook-test/4416ff12-adef-445f-a1d7-d7a7731a8e3d', {
+    const res=await fetch(WEBHOOK_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({url})
     });
     if(!res.ok) throw new Error(await res.text());
-    const personas=await res.json();          // expecting array [{id,name,role,demographics,goals…}, …]
+    const personas=await res.json();      // expects array
     renderPersonas(personas);
   }catch(err){
     console.error(err);
@@ -80,9 +67,30 @@ async function fetchPersonas(){
 function renderPersonas(list){
   const box=document.getElementById('results');
   box.innerHTML='';
-  if(!Array.isArray(list) || !list.length){
+  if(!Array.isArray(list)||!list.length){
     box.innerHTML='<p>No matching personas.</p>';
     return;
   }
   list.forEach(p=>{
-    const el=documen
+    const el=document.createElement('div');
+    el.className='persona';
+    el.innerHTML=`
+      <h3>${p.name || p.id}</h3>
+      <p class="small">${p.role||''}</p>
+      <p><strong>Goals:</strong> ${Array.isArray(p.goals)?p.goals.join('; '):''}</p>
+      <p><strong>Pain points:</strong> ${Array.isArray(p.pain_points)?p.pain_points.join('; '):''}</p>`;
+    box.appendChild(el);
+  });
+}
+
+/* ------------ wire up UI ------------ */
+document.getElementById('matchBtn').addEventListener('click',fetchPersonas);
+
+/* optional: auto-run if ?url= param present */
+window.addEventListener('DOMContentLoaded',()=>{
+  const u=new URLSearchParams(location.search).get('url');
+  if(u){document.getElementById('urlInput').value=u;fetchPersonas();}
+});
+</script>
+</body>
+</html>
