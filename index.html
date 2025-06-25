@@ -72,13 +72,19 @@ function setLoading(on){ $("#matchBtn").disabled = on; }
 
 /* ---------- chat UI ---------- */
 function addChatMessage(sender, text){
+  const label = sender === 'user'
+      ? 'You'
+      : (window.activePersonaName || 'Persona');   // ‹— fallback just in case
+
   const div = document.createElement('div');
-  div.style.margin='0.4rem 0';
-  div.innerHTML = `<strong>${sender==='user'?'You':'Persona'}:</strong> `
+  div.style.margin = '0.4rem 0';
+  div.innerHTML = `<strong>${label}:</strong> `
                 + text.replace(/\n/g,'<br>');
+
   $("#chatBox").appendChild(div);
   $("#chatBox").scrollTop = $("#chatBox").scrollHeight;
 }
+
 
 /* ---------- primary actions ---------- */
 async function fetchPersonas(){
@@ -117,21 +123,28 @@ function renderPersonas(list){
       <p class="small">${p.role||''}</p>
       <p><strong>Goals:</strong> ${(p.goals||[]).join('; ')}</p>
       <p><strong>Pain&nbsp;points:</strong> ${(p.pain_points||[]).join('; ')}</p>
-      <button class="improveBtn" data-id="${p.id}">
+      <button class="improveBtn"
+          data-id="${p.id}"
+          data-name="${p.name || p.id}">
         Improve this page for ${(p.name||p.id).split(' ')[0]}
       </button>`;
     box.appendChild(el);
   });
 
   /* delegate: one click handler for all improve buttons */
-  box.onclick = e=>{
-    if(e.target.classList.contains('improveBtn')){
-      improveForPersona(e.target.dataset.id);
+   box.onclick = e => {
+    if (e.target.classList.contains('improveBtn')) {
+      const id   = e.target.dataset.id;
+      const name = e.target.dataset.name;   
+      improveForPersona(id, name);
     }
   };
+
 }
 
-async function improveForPersona(personaId){
+async function improveForPersona(personaId, personaName){
+  // remember it for later chat labels
+  window.activePersonaName = personaName || personaId;
   const url=$("#urlInput").value.trim();
   if(!url) return toast("Enter a URL first");
 
