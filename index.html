@@ -5,19 +5,37 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Persona Matcher</title>
 
+<!-- ——— basic look ——— -->
 <style>
   body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-       max-width:680px;margin:2rem auto;background:#f7f7f9;padding:2rem;color:#222}
+       max-width:700px;margin:2rem auto;background:#f7f7f9;padding:2rem;color:#222}
+  h1{font-size:1.6rem;margin-top:0}
   input[type=text]{width:100%;padding:0.6rem;border:1px solid #bbb;border-radius:4px}
   button{margin-top:0.8rem;padding:0.6rem 1.2rem;border:0;border-radius:4px;
          background:#0066ff;color:#fff;font-weight:600;cursor:pointer}
   button:disabled{background:#8cb3ff;cursor:default}
   .persona{border:1px solid #ddd;border-radius:4px;background:#fff;padding:1rem;margin-top:1rem}
-  .persona h3{margin:0;font-size:1.1rem}
-  .small{font-size:0.85rem;color:#555}
+  .persona h3{margin:0 0 .3rem;font-size:1.1rem}
+  .small{font-size:.85rem;color:#555}
+  .persona button{background:#00994d}          /* per-persona Improve btn */
+  .advice{white-space:pre-line;background:#fff;border:1px solid #ddd;margin:1rem 0;
+          padding:1rem;border-radius:4px}
   #toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);
-         background:#222;color:#fff;padding:0.7rem 1rem;border-radius:4px;display:none}
+         background:#222;color:#fff;padding:.7rem 1rem;border-radius:4px;display:none}
 </style>
+
+<!-- ———  optional PWA manifest (minimal, inline) ——— -->
+<link rel="manifest" href='data:application/manifest+json,{
+  "name":"Persona Matcher","short_name":"Matcher",
+  "start_url":"./","display":"standalone",
+  "background_color":"#ffffff","theme_color":"#0066ff"}'>
+
+<!-- ———  small service-worker (offline cache) ——— -->
+<script>
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(console.error);
+}
+</script>
 </head>
 <body>
 <h1>Persona Matcher</h1>
@@ -26,70 +44,100 @@
 <button id="matchBtn">Match personas</button>
 
 <div id="results"></div>
+
+<h2 id="advTitle" style="display:none">Recommendations</h2>
+<div id="adviceBox"></div>
+
 <div id="toast"></div>
 
 <script>
-const WEBHOOK_URL = "https://ovhpersonas.app.n8n.cloud/webhook-test/4416ff12-adef-445f-a1d7-d7a7731a8e3d";
+/* ---------- config ---------- */
+const MATCH_WEBHOOK   = "https://ovhpersonas.app.n8n.cloud/webhook-test/4416ff12-adef-445f-a1d7-d7a7731a8e3d";   // Webhook #1
+const IMPROVE_WEBHOOK = "https://ovhpersonas.app.n8n.cloud/webhook-test/page-improve";   // Webhook #2
 
-/* ------------ helpers ------------ */
+/* ---------- helpers ---------- */
+const $ = sel => document.querySelector(sel);
 function toast(msg,ms=2500){
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.style.display='block';
-  setTimeout(()=>t.style.display='none',ms);
+  const t=$("#toast"); t.textContent=msg; t.style.display='block';
+  clearTimeout(t.dataset.to); t.dataset.to=setTimeout(()=>t.style.display='none',ms);
 }
 function setLoading(on){
-  document.getElementById('matchBtn').disabled=on;
+  $("#matchBtn").disabled=on;
 }
 
-/* ------------ main flow ------------ */
+/* ---------- main flow ---------- */
 async function fetchPersonas(){
-  const url=document.getElementById('urlInput').value.trim();
+  const url=$("#urlInput").value.trim();
   if(!url) return toast('Please enter a URL');
+  setLoading(true); $("#advTitle").style.display='none'; $("#adviceBox").innerHTML='';
 
-  setLoading(true);
   try{
-    const res=await fetch(WEBHOOK_URL,{
+    const res=await fetch(MATCH_WEBHOOK,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({url})
     });
     if(!res.ok) throw new Error(await res.text());
-    const personas=await res.json();      // expects array
+    const personas=await res.json();           // array expected
     renderPersonas(personas);
-  }catch(err){
-    console.error(err);
-    toast('Error: '+err.message);
-  }finally{
-    setLoading(false);
-  }
+  }catch(err){ console.error(err); toast('Error: '+err.message); }
+  finally{ setLoading(false); }
 }
 
 function renderPersonas(list){
-  const box=document.getElementById('results');
-  box.innerHTML='';
-  if(!Array.isArray(list)||!list.length){
-    box.innerHTML='<p>No matching personas.</p>';
-    return;
+  const box=$("#results"); box.innerHTML='';
+  if(!Array.isArray(list) || !list.length){
+    box.innerHTML='<p>No matching personas.</p>'; return;
   }
+
   list.forEach(p=>{
-    const el=document.createElement('div');
-    el.className='persona';
+    const el=document.createElement('div'); el.className='persona';
     el.innerHTML=`
-      <h3>${p.name || p.id}</h3>
-      <p class="small">${p.role||''}</p>
-      <p><strong>Goals:</strong> ${Array.isArray(p.goals)?p.goals.join('; '):''}</p>
-      <p><strong>Pain points:</strong> ${Array.isArray(p.pain_points)?p.pain_points.join('; '):''}</p>`;
+        <h3>${p.name || p.id}</h3>
+        <p class="small">${p.role||''}</p>
+        <p><strong>Goals:</strong> ${(p.goals||[]).join('; ')}</p>
+        <p><strong>Pain points:</strong> ${(p.pain_points||[]).join('; ')}</p>
+        <button class="improveBtn" data-id="${p.id}">
+          Improve this page for ${ (p.name||p.id).split(' ')[0] }
+        </button>`;
     box.appendChild(el);
   });
+
+  /* one delegated listener (so we attach only once) */
+  box.onclick = e=>{
+    if(e.target.classList.contains('improveBtn')){
+      improveForPersona(e.target.dataset.id);
+    }
+  };
 }
 
-/* ------------ wire up UI ------------ */
-document.getElementById('matchBtn').addEventListener('click',fetchPersonas);
+async function improveForPersona(personaId){
+  const url=$("#urlInput").value.trim();
+  if(!personaId) return toast('No persona chosen');
+  setLoading(true); $("#advTitle").style.display='none'; $("#adviceBox").innerHTML='';
 
-/* optional: auto-run if ?url= param present */
+  try{
+    const res=await fetch(IMPROVE_WEBHOOK,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({url, persona_id:personaId})
+    });
+    if(!res.ok) throw new Error(await res.text());
+    const {advice}=await res.json();           // { advice:"..." }
+    $("#advTitle").style.display='block';
+    $("#adviceBox").innerHTML=`<div class="advice">${advice}</div>`;
+    location.hash="#advTitle";
+  }catch(err){ console.error(err); toast('Error: '+err.message); }
+  finally{ setLoading(false); }
+}
+
+/* ---------- wire up ---------- */
+$("#matchBtn").addEventListener('click',fetchPersonas);
+
+/* Auto-run if ?url= param present */
 window.addEventListener('DOMContentLoaded',()=>{
   const u=new URLSearchParams(location.search).get('url');
-  if(u){document.getElementById('urlInput').value=u;fetchPersonas();}
+  if(u){$("#urlInput").value=u; fetchPersonas();}
 });
 </script>
 </body>
