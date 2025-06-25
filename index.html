@@ -5,37 +5,29 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Persona Matcher</title>
 
-<!-- ——— basic look ——— -->
+<!-- --- styles kept tiny on purpose --- -->
 <style>
   body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-       max-width:700px;margin:2rem auto;background:#f7f7f9;padding:2rem;color:#222}
+       max-width:720px;margin:2rem auto;padding:2rem;background:#f7f7f9;color:#222}
   h1{font-size:1.6rem;margin-top:0}
-  input[type=text]{width:100%;padding:0.6rem;border:1px solid #bbb;border-radius:4px}
-  button{margin-top:0.8rem;padding:0.6rem 1.2rem;border:0;border-radius:4px;
-         background:#0066ff;color:#fff;font-weight:600;cursor:pointer}
-  button:disabled{background:#8cb3ff;cursor:default}
+  input[type=text]{width:100%;padding:.6rem;border:1px solid #bbb;border-radius:4px}
+  button{padding:.6rem 1.2rem;border:0;border-radius:4px;font-weight:600;color:#fff;
+         cursor:pointer}
+  #matchBtn{background:#0066ff;margin-top:.8rem}
+  #matchBtn:disabled{background:#8cb3ff;cursor:default}
   .persona{border:1px solid #ddd;border-radius:4px;background:#fff;padding:1rem;margin-top:1rem}
   .persona h3{margin:0 0 .3rem;font-size:1.1rem}
   .small{font-size:.85rem;color:#555}
-  .persona button{background:#00994d}          /* per-persona Improve btn */
-  .advice{white-space:pre-line;background:#fff;border:1px solid #ddd;margin:1rem 0;
-          padding:1rem;border-radius:4px}
+  .improveBtn{background:#00994d;margin-top:.6rem}
+  .advice{white-space:pre-line;background:#fff;border:1px solid #ddd;padding:1rem;
+          border-radius:4px;margin:1rem 0}
+  #chatBox{border:1px solid #ddd;border-radius:4px;background:#fff;padding:1rem;
+           max-height:340px;overflow:auto;margin:1rem 0 .5rem}
+  #chatForm input{width:80%;padding:.6rem;border:1px solid #bbb;border-radius:4px}
+  #chatForm button{background:#0066ff}
   #toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);
          background:#222;color:#fff;padding:.7rem 1rem;border-radius:4px;display:none}
 </style>
-
-<!-- ———  optional PWA manifest (minimal, inline) ——— -->
-<link rel="manifest" href='data:application/manifest+json,{
-  "name":"Persona Matcher","short_name":"Matcher",
-  "start_url":"./","display":"standalone",
-  "background_color":"#ffffff","theme_color":"#0066ff"}'>
-
-<!-- ———  small service-worker (offline cache) ——— -->
-<script>
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js').catch(console.error);
-}
-</script>
 </head>
 <body>
 <h1>Persona Matcher</h1>
@@ -47,76 +39,91 @@ if('serviceWorker' in navigator){
 
 <h2 id="advTitle" style="display:none">Recommendations</h2>
 <div id="adviceBox"></div>
+
 <h2 id="chatTitle" style="display:none">Chat with this Persona</h2>
-<div id="chatBox" style="border:1px solid #ddd;border-radius:4px;
-                         background:#fff;padding:1rem;max-height:320px;
-                         overflow:auto;margin-bottom:0.5rem"></div>
+<div id="chatBox"></div>
 
 <form id="chatForm" style="display:none">
-  <input id="chatInput" type="text" placeholder="Ask a follow-up question"
-         style="width:85%;padding:0.6rem;border:1px solid #bbb;
-                border-radius:4px">
-  <button style="padding:0.6rem 1rem;background:#0066ff;color:#fff;
-                 font-weight:600;border:0;border-radius:4px">Send</button>
+  <input id="chatInput" type="text" placeholder="Ask a follow-up question">
+  <button>Send</button>
 </form>
 
 <div id="toast"></div>
 
 <script>
-/* ---------- config ---------- */
-const MATCH_WEBHOOK   = "https://ovhpersonas.app.n8n.cloud/webhook-test/4416ff12-adef-445f-a1d7-d7a7731a8e3d";   // Webhook #1
-const IMPROVE_WEBHOOK = "https://ovhpersonas.app.n8n.cloud/webhook-test/page-improve";   // Webhook #2
-const CHAT_WEBHOOK = "https://ovhpersonas.app.n8n.cloud/webhook-test/chat"; // 
+/* ---------- configuration ---------- */
+const MATCH_WEBHOOK    = "https://ovhpersonas.app.n8n.cloud/webhook-test/4416ff12-adef-445f-a1d7-d7a7731a8e3d";
+const IMPROVE_WEBHOOK  = "https://ovhpersonas.app.n8n.cloud/webhook-test/page-improve";
+const CONTINUE_WEBHOOK = "https://ovhpersonas.app.n8n.cloud/webhook-test/continue-chat";
 
-/* ---------- helpers ---------- */
+/* ---------- globals that survive between calls ---------- */
+let threadId     = null;
+let assistantId  = null;
+let activePersona= null;
+
+/* ---------- DOM helpers ---------- */
 const $ = sel => document.querySelector(sel);
 function toast(msg,ms=2500){
-  const t=$("#toast"); t.textContent=msg; t.style.display='block';
-  clearTimeout(t.dataset.to); t.dataset.to=setTimeout(()=>t.style.display='none',ms);
+  const t=$("#toast");
+  t.textContent = msg; t.style.display='block';
+  clearTimeout(t.dataset.to); t.dataset.to = setTimeout(()=>t.style.display='none',ms);
 }
-function setLoading(on){
-  $("#matchBtn").disabled=on;
+function setLoading(on){ $("#matchBtn").disabled = on; }
+
+/* ---------- chat UI ---------- */
+function addChatMessage(sender, text){
+  const div = document.createElement('div');
+  div.style.margin='0.4rem 0';
+  div.innerHTML = `<strong>${sender==='user'?'You':'Persona'}:</strong> `
+                + text.replace(/\n/g,'<br>');
+  $("#chatBox").appendChild(div);
+  $("#chatBox").scrollTop = $("#chatBox").scrollHeight;
 }
 
-/* ---------- main flow ---------- */
+/* ---------- primary actions ---------- */
 async function fetchPersonas(){
-  const url=$("#urlInput").value.trim();
-  if(!url) return toast('Please enter a URL');
-  setLoading(true); $("#advTitle").style.display='none'; $("#adviceBox").innerHTML='';
+  const url = $("#urlInput").value.trim();
+  if(!url) return toast("Please enter a URL");
+
+  setLoading(true);
+  $("#results").innerHTML='';
+  $("#advTitle").style.display = 'none';
+  $("#chatTitle").style.display = 'none';
+  $("#adviceBox").innerHTML='';
+  $("#chatBox").innerHTML='';
+  $("#chatForm").style.display='none';
 
   try{
-    const res=await fetch(MATCH_WEBHOOK,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+    const res = await fetch(MATCH_WEBHOOK,{
+      method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({url})
     });
     if(!res.ok) throw new Error(await res.text());
-    const personas=await res.json();           // array expected
+    const personas = await res.json();
     renderPersonas(personas);
-  }catch(err){ console.error(err); toast('Error: '+err.message); }
+  }catch(e){ console.error(e); toast("Error: "+e.message); }
   finally{ setLoading(false); }
 }
 
 function renderPersonas(list){
   const box=$("#results"); box.innerHTML='';
-  if(!Array.isArray(list) || !list.length){
+  if(!Array.isArray(list)||!list.length){
     box.innerHTML='<p>No matching personas.</p>'; return;
   }
-
   list.forEach(p=>{
     const el=document.createElement('div'); el.className='persona';
-    el.innerHTML=`
-        <h3>${p.name || p.id}</h3>
-        <p class="small">${p.role||''}</p>
-        <p><strong>Goals:</strong> ${(p.goals||[]).join('; ')}</p>
-        <p><strong>Pain points:</strong> ${(p.pain_points||[]).join('; ')}</p>
-        <button class="improveBtn" data-id="${p.id}">
-          Improve this page for ${ (p.name||p.id).split(' ')[0] }
-        </button>`;
+    el.innerHTML = `
+      <h3>${p.name||p.id}</h3>
+      <p class="small">${p.role||''}</p>
+      <p><strong>Goals:</strong> ${(p.goals||[]).join('; ')}</p>
+      <p><strong>Pain&nbsp;points:</strong> ${(p.pain_points||[]).join('; ')}</p>
+      <button class="improveBtn" data-id="${p.id}">
+        Improve this page for ${(p.name||p.id).split(' ')[0]}
+      </button>`;
     box.appendChild(el);
   });
 
-  /* one delegated listener (so we attach only once) */
+  /* delegate: one click handler for all improve buttons */
   box.onclick = e=>{
     if(e.target.classList.contains('improveBtn')){
       improveForPersona(e.target.dataset.id);
@@ -126,71 +133,71 @@ function renderPersonas(list){
 
 async function improveForPersona(personaId){
   const url=$("#urlInput").value.trim();
-  if(!personaId) return toast('No persona chosen');
-  setLoading(true); $("#advTitle").style.display='none'; $("#adviceBox").innerHTML='';
+  if(!url) return toast("Enter a URL first");
+
+  setLoading(true);
+  $("#advTitle").style.display='none';
+  $("#adviceBox").innerHTML='';
+  $("#chatTitle").style.display='none';
+  $("#chatBox").innerHTML='';
+  $("#chatForm").style.display='none';
 
   try{
-    const res=await fetch(IMPROVE_WEBHOOK,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+    const res = await fetch(IMPROVE_WEBHOOK,{
+      method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({url, persona_id:personaId})
     });
     if(!res.ok) throw new Error(await res.text());
-    const {advice}=await res.json();           // { advice:"..." }
+    const {advice, thread_id, assistant_id} = await res.json();
+
+    // show advice
     $("#advTitle").style.display='block';
     $("#adviceBox").innerHTML=`<div class="advice">${advice}</div>`;
     location.hash="#advTitle";
-    // remember persona + advice for chat
-    window.activePersona = personaId;   // we already know personaId in this scope
-    window.pageAdvice   = advice;       // the markdown string we got back
-    
-    $("#chatTitle").style.display = 'block';
-    $("#chatForm").style.display  = 'flex';   // show the input
-    $("#chatInput").focus();
 
-  }catch(err){ console.error(err); toast('Error: '+err.message); }
+    // initialise chat
+    threadId      = thread_id;
+    assistantId   = assistant_id;
+    activePersona = personaId;
+    addChatMessage('Persona', advice);
+
+    $("#chatTitle").style.display='block';
+    $("#chatForm").style.display='flex';
+    $("#chatInput").focus();
+  }catch(e){ console.error(e); toast("Error: "+e.message); }
   finally{ setLoading(false); }
 }
 
-/* ---------- wire up ---------- */
+/* ---------- follow-up chat ---------- */
 $("#chatForm").addEventListener('submit', async e=>{
   e.preventDefault();
-  const q = $("#chatInput").value.trim();
-  if(!q){ toast('Ask something!'); return; }
-  appendMsg('user', q);
-  $("#chatInput").value='';  $("#chatInput").focus();
+  const input=$("#chatInput");
+  const msg=input.value.trim();
+  if(!msg) return;
+  if(!threadId||!assistantId) return toast("No active chat");
+
+  addChatMessage('user', msg);
+  input.value=''; input.focus();
 
   try{
-    const res = await fetch(CHAT_WEBHOOK,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+    const res = await fetch(CONTINUE_WEBHOOK,{
+      method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        url: $("#urlInput").value.trim(),
-        persona_id: window.activePersona,
-        advice:     window.pageAdvice,
-        question:   q
+        thread_id   : threadId,
+        assistant_id: assistantId,
+        user_message: msg
       })
     });
     if(!res.ok) throw new Error(await res.text());
     const {answer} = await res.json();
-    appendMsg('assistant', answer);
-  }catch(err){
-    console.error(err); toast('Chat error: '+err.message);
-  }
+    addChatMessage('Persona', answer);
+  }catch(e){ console.error(e); toast("Chat error"); }
 });
 
-function appendMsg(who,text){
-  const div = document.createElement('div');
-  div.style.margin = '0.4rem 0';
-  div.innerHTML = `<strong>${who==='user'?'You':'Persona'}:</strong> `
-                + text.replace(/\n/g,'<br>');
-  $("#chatBox").appendChild(div);
-  $("#chatBox").scrollTop = $("#chatBox").scrollHeight;
-}
-
+/* ---------- initial wiring ---------- */
 $("#matchBtn").addEventListener('click',fetchPersonas);
 
-/* Auto-run if ?url= param present */
+/* auto-run if ?url=… */
 window.addEventListener('DOMContentLoaded',()=>{
   const u=new URLSearchParams(location.search).get('url');
   if(u){$("#urlInput").value=u; fetchPersonas();}
