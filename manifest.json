@@ -1,0 +1,9 @@
+{
+  "name": "Persona Matcher",
+  "short_name": "Matcher",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0066ff",
+  "icons": []
+}
