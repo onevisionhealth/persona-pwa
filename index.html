@@ -54,9 +54,9 @@
 
 <script>
 /* ---------- configuration ---------- */
-const MATCH_WEBHOOK    = "https://ovhpersonas.app.n8n.cloud/webhook-test/4416ff12-adef-445f-a1d7-d7a7731a8e3d";
-const IMPROVE_WEBHOOK  = "https://ovhpersonas.app.n8n.cloud/webhook-test/page-improve";
-const CONTINUE_WEBHOOK = "https://ovhpersonas.app.n8n.cloud/webhook-test/continue-chat";
+const MATCH_WEBHOOK    = "https://ovhpersonas.app.n8n.cloud/webhook/match-personas";
+const ASSIST_WEBHOOK  = "https://ovhpersonas.app.n8n.cloud/webhook/select-assistant";
+const CONTINUE_WEBHOOK = "https://ovhpersonas.app.n8n.cloud/webhook/continue-chat";
 
 /* ---------- globals that survive between calls ---------- */
 let threadId     = null;
@@ -168,7 +168,7 @@ async function improveForPersona(personaId, personaName){
   $("#chatForm").style.display='none';
 
   try{
-    const res = await fetch(IMPROVE_WEBHOOK,{
+    const res = await fetch(ASSIST_WEBHOOK,{
       method:'POST', headers:{'Content-Type':'application/json',...getAuthHeader()},
       body:JSON.stringify({url, persona_id:personaId})
     });
