@@ -32,8 +32,10 @@
 <body>
 <h1>Persona Matcher</h1>
 
-<input id="urlInput" type="text" placeholder="Paste a web-page URL">
+<input id="pwdInput"  type="password" placeholder="What's the magic word?">
+<input id="urlInput"  type="text"     placeholder="Paste a web-page URL">
 <button id="matchBtn">Match personas</button>
+
 
 <div id="results"></div>
 
@@ -70,6 +72,16 @@ function toast(msg,ms=2500){
 }
 function setLoading(on){ $("#matchBtn").disabled = on; }
 
+/* ---- Basic-Auth helper ---- */
+function getAuthHeader () {
+  let pwd = $("#pwdInput").value.trim();
+  if (!pwd) pwd = sessionStorage.getItem('pwd') || '';
+  else      sessionStorage.setItem('pwd', pwd);
+
+  if (!pwd) return {};
+  return { "Authorization": `Basic ${btoa(`user:${pwd}`)}` };
+}
+
 /* ---------- chat UI ---------- */
 function addChatMessage(sender, text){
   const label = sender === 'user'
@@ -101,7 +113,7 @@ async function fetchPersonas(){
 
   try{
     const res = await fetch(MATCH_WEBHOOK,{
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json',...getAuthHeader()},
       body:JSON.stringify({url})
     });
     if(!res.ok) throw new Error(await res.text());
@@ -157,7 +169,7 @@ async function improveForPersona(personaId, personaName){
 
   try{
     const res = await fetch(IMPROVE_WEBHOOK,{
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json',...getAuthHeader()},
       body:JSON.stringify({url, persona_id:personaId})
     });
     if(!res.ok) throw new Error(await res.text());
@@ -194,7 +206,7 @@ $("#chatForm").addEventListener('submit', async e=>{
 
   try{
     const res = await fetch(CONTINUE_WEBHOOK,{
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json',...getAuthHeader()},
       body:JSON.stringify({
         thread_id   : threadId,
         assistant_id: assistantId,
