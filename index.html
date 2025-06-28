@@ -148,14 +148,17 @@ function renderPersonas(list){
     box.innerHTML='<p>No matching personas.</p>'; return;
   }
   list.forEach(p=>{
-    // 🔹 badge HTML only if persona already owns an assistant
-    const badge = p.hasAssistant
-      ? '<svg class="assistant-badge" role="img" aria-label="Already has an assistant"><use href="#icon-robot"></use></svg>'
-      : '';
     const el=document.createElement('div'); el.className='persona';
     el.innerHTML = `
-     <h3>${p.name || p.id}${badge}</h3>
-      <p class="small">${p.role||''}</p>
+     <h3>
+  ${p.hasAssistant
+    ? '<span title="Already has an assistant" style="vertical-align:middle;margin-right:0.4rem;">'
+        + '<svg class="assistant-badge" role="img" aria-label="Already has an assistant">'
+        + '<use href="#icon-robot"></use></svg>'
+      + '</span>'
+    : ''}
+  ${p.name || p.id}
+</h3> <p class="small">${p.role||''}</p>
       <p><strong>Goals:</strong> ${(p.goals||[]).join('; ')}</p>
       <p><strong>Pain&nbsp;points:</strong> ${(p.pain_points||[]).join('; ')}</p>
       <button class="improveBtn"
