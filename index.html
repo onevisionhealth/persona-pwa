@@ -303,7 +303,9 @@ async function fetchPersonas(){
         threadId    = thread_id;
         assistantId = assistant_id;
         activePersona = personaId;
-        addChatMessage(personaName, videos);
+        // after: join them into one text block
+addChatMessage(personaName, videos.map(v => `🎥 ${v}`).join("\n"));
+
 
         $("#chatTitle").style.display = 'block';
         $("#chatForm").style.display = 'flex';
