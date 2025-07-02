@@ -106,6 +106,80 @@
       vertical-align: middle;
       fill: #0fa;
     }
+
+    /* Loading spinners */
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #0066ff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    .spinner-large {
+      width: 32px;
+      height: 32px;
+      border-width: 3px;
+      margin: 20px auto;
+      display: block;
+    }
+
+    .spinner-white {
+      border-color: rgba(255,255,255,0.3);
+      border-top-color: #fff;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-overlay {
+      position: relative;
+    }
+
+    .loading-overlay::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255,255,255,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+    }
+
+    .loading-text {
+      opacity: 0.7;
+      font-size: 0.9em;
+    }
+
+    /* Button loading states */
+    button.loading {
+      position: relative;
+      color: transparent;
+    }
+
+    button.loading::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top: 2px solid #fff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
   </style>
 
   <svg aria-hidden="true" style="display:none">
@@ -169,8 +243,32 @@
       clearTimeout(t.dataset.to);
       t.dataset.to = setTimeout(() => t.style.display = "none", ms);
     }
+
+    /* ---------- Enhanced loading helpers ---------- */
+    function setButtonLoading(button, loading, originalText) {
+      if (loading) {
+        button.dataset.originalText = button.textContent;
+        button.classList.add('loading');
+        button.disabled = true;
+      } else {
+        button.classList.remove('loading');
+        button.disabled = false;
+        button.textContent = button.dataset.originalText || originalText || button.textContent;
+      }
+    }
+
+    function showContentSpinner(container, message = 'Loading...') {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 2rem;">
+          <div class="spinner spinner-large"></div>
+          <div class="loading-text">${message}</div>
+        </div>
+      `;
+    }
+
     function setLoading(on) {
-      $("#matchBtn").disabled = on;
+      const btn = $("#matchBtn");
+      setButtonLoading(btn, on, 'Match personas');
     }
 
     /* ---- Basic-Auth helper ---- */
@@ -282,9 +380,13 @@ async function fetchPersonas(){
       const url = $("#urlInput").value.trim();
       if (!url) return toast("Enter a URL first");
       
-      setLoading(true);
+      // Find the clicked button and show loading state
+      const clickedBtn = event.target;
+      setButtonLoading(clickedBtn, true);
+      
       $("#videoTitle").style.display = 'none';
-      $("#videoBox").innerHTML = '';
+      showContentSpinner($("#videoBox"), 'Getting video suggestions...');
+      
       try {
         const res = await fetch(VIDEO_WEBHOOK, {
           method: 'POST',
@@ -292,7 +394,7 @@ async function fetchPersonas(){
           body: JSON.stringify({ url, persona_id: personaId })
         });
         if (!res.ok) throw new Error(await res.text());
-        const { videos, thread_id, assistant_id } = await res.json(); // expect { videos: ["vid1", "vid2", ...] }
+        const { videos, thread_id, assistant_id } = await res.json();
 
         $("#videoTitle").style.display = 'block';
         $("#videoBox").innerHTML = videos
@@ -303,9 +405,7 @@ async function fetchPersonas(){
         threadId    = thread_id;
         assistantId = assistant_id;
         activePersona = personaId;
-        // after: join them into one text block
-addChatMessage(personaName, videos.map(v => `🎥 ${v}`).join("\n"));
-
+        addChatMessage(personaName, videos.map(v => `🎥 ${v}`).join("\n"));
 
         $("#chatTitle").style.display = 'block';
         $("#chatForm").style.display = 'flex';
@@ -313,8 +413,9 @@ addChatMessage(personaName, videos.map(v => `🎥 ${v}`).join("\n"));
       } catch(e) {
         console.error(e);
         toast("Video error: " + e.message);
+        $("#videoBox").innerHTML = '';
       } finally {
-        setLoading(false);
+        setButtonLoading(clickedBtn, false);
       }
     }
 
@@ -324,10 +425,14 @@ addChatMessage(personaName, videos.map(v => `🎥 ${v}`).join("\n"));
       const url = $("#urlInput").value.trim();
       if (!url) return toast("Enter a URL first");
 
-      setLoading(true);
+      // Find the clicked button and show loading state
+      const clickedBtn = event.target;
+      setButtonLoading(clickedBtn, true);
+      
       $("#advTitle, #chatTitle").forEach(id => $(id).style.display = 'none');
-      $("#adviceBox, #chatBox").forEach(id => $(id).innerHTML = '');
+      $("#chatBox").innerHTML = '';
       $("#chatForm").style.display = 'none';
+      showContentSpinner($("#adviceBox"), 'Getting recommendations...');
 
       try {
         const res = await fetch(ASSIST_WEBHOOK, {
@@ -353,8 +458,9 @@ addChatMessage(personaName, videos.map(v => `🎥 ${v}`).join("\n"));
       } catch(e) {
         console.error(e);
         toast("Error: " + e.message);
+        $("#adviceBox").innerHTML = '';
       } finally {
-        setLoading(false);
+        setButtonLoading(clickedBtn, false);
       }
     }
 
@@ -365,9 +471,20 @@ addChatMessage(personaName, videos.map(v => `🎥 ${v}`).join("\n"));
       if (!msg) return;
       if (!threadId || !assistantId) return toast("No active chat");
 
+      const chatBtn = $("#chatForm button");
       addChatMessage('user', msg);
       $("#chatInput").value = '';
-      $("#chatInput").focus();
+      
+      // Show loading state for chat
+      setButtonLoading(chatBtn, true, 'Send');
+      
+      // Add a temporary "thinking" message
+      const thinkingDiv = document.createElement('div');
+      thinkingDiv.style.margin = '0.4rem 0';
+      thinkingDiv.style.opacity = '0.7';
+      thinkingDiv.innerHTML = `<strong>${window.activePersonaName || 'Persona'}:</strong> <span class="spinner"></span> Thinking...`;
+      $("#chatBox").appendChild(thinkingDiv);
+      $("#chatBox").scrollTop = $("#chatBox").scrollHeight;
 
       try {
         const res = await fetch(CONTINUE_WEBHOOK, {
@@ -381,10 +498,17 @@ addChatMessage(personaName, videos.map(v => `🎥 ${v}`).join("\n"));
         });
         if (!res.ok) throw new Error(await res.text());
         const { answer } = await res.json();
+        
+        // Remove thinking message
+        thinkingDiv.remove();
         addChatMessage(window.activePersonaName, answer);
       } catch(e) {
         console.error(e);
         toast("Chat error");
+        thinkingDiv.remove();
+      } finally {
+        setButtonLoading(chatBtn, false, 'Send');
+        $("#chatInput").focus();
       }
     });
 
