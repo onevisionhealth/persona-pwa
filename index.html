@@ -46,7 +46,36 @@
       padding: 1rem;
       margin-top: 1rem;
     }
-    .persona h3 { margin: 0 0 .3rem; font-size: 1.1rem; }
+    .persona h3 { 
+      margin: 0 0 .3rem; 
+      font-size: 1.1rem; 
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .persona h3:hover {
+      background: #f8f9fa;
+      margin: -0.5rem;
+      padding: 0.5rem;
+      border-radius: 4px;
+    }
+    .expand-icon {
+      font-size: 0.8em;
+      color: #666;
+      transition: transform 0.2s ease;
+    }
+    .persona.expanded .expand-icon {
+      transform: rotate(180deg);
+    }
+    .persona-details {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    .persona.expanded .persona-details {
+      max-height: 200px;
+    }
     .small { font-size: .85rem; color: #555; }
     .improveBtn { background: #00994d; margin-top: .6rem; }
     .videoBtn { background: #ff6600; margin-top: .4rem; margin-left: .5rem; }
@@ -346,25 +375,38 @@ async function fetchPersonas(){
         el.className = 'persona';
         el.innerHTML = `
           <h3>
-            ${p.hasAssistant
-              ? '<svg class="assistant-badge" role="img" aria-label="Already has an assistant"><use href="#icon-robot"/></svg>'
-              : ''}
-            ${p.name || p.id}
+            <span>
+              ${p.hasAssistant
+                ? '<svg class="assistant-badge" role="img" aria-label="Already has an assistant"><use href="#icon-robot"/></svg>'
+                : ''}
+              ${p.name || p.id}
+            </span>
+            <span class="expand-icon">▼</span>
           </h3>
           <p class="small">${p.role || ''}</p>
-          <p><strong>Goals:</strong> ${(p.goals || []).join('; ')}</p>
-          <p><strong>Pain points:</strong> ${(p.pain_points || []).join('; ')}</p>
-          <button class="improveBtn" data-id="${p.id}" data-name="${p.name || p.id}">
-            Improve this page for ${(p.name || p.id).split(' ')[0]}
-          </button>
-          <button class="videoBtn" data-id="${p.id}">
-            Get video suggestions
-          </button>
+          <div class="persona-details">
+            <p><strong>Goals:</strong> ${(p.goals || []).join('; ')}</p>
+            <p><strong>Pain points:</strong> ${(p.pain_points || []).join('; ')}</p>
+            <button class="improveBtn" data-id="${p.id}" data-name="${p.name || p.id}">
+              Improve this page for ${(p.name || p.id).split(' ')[0]}
+            </button>
+            <button class="videoBtn" data-id="${p.id}">
+              Get video suggestions
+            </button>
+          </div>
         `;
         box.appendChild(el);
       });
 
       box.onclick = e => {
+        // Handle persona card expand/collapse
+        if (e.target.tagName === 'H3' || e.target.closest('h3')) {
+          const personaCard = e.target.closest('.persona');
+          personaCard.classList.toggle('expanded');
+          return;
+        }
+        
+        // Handle button clicks
         if (e.target.classList.contains('improveBtn')) {
           improveForPersona(e.target.dataset.id, e.target.dataset.name);
         }
@@ -482,7 +524,7 @@ async function fetchPersonas(){
       const thinkingDiv = document.createElement('div');
       thinkingDiv.style.margin = '0.4rem 0';
       thinkingDiv.style.opacity = '0.7';
-      thinkingDiv.innerHTML = `<strong>${window.activePersonaName || 'Persona'}:</strong> <span class="spinner"></span> Thinking...`;
+      thinkingDiv.innerHTML = `<strong>${window.activePersonaName}:</strong> <span class="spinner"></span> Thinking...`;
       $("#chatBox").appendChild(thinkingDiv);
       $("#chatBox").scrollTop = $("#chatBox").scrollHeight;
 
