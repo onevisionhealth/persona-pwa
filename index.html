@@ -271,13 +271,17 @@ async function fetchPersonas(){
           improveForPersona(e.target.dataset.id, e.target.dataset.name);
         }
         if (e.target.classList.contains('videoBtn')) {
-          videoForPersona(e.target.dataset.id);
+          videoForPersona(e.target.dataset.id, e.target.dataset.name);
         }
       };
     }
 
     /* ---------- NEW: video suggestions ---------- */
-    async function videoForPersona(personaId) {
+    async function videoForPersona(personaId, personaName) {
+      window.activePersonaName = personaName;
+      const url = $("#urlInput").value.trim();
+      if (!url) return toast("Enter a URL first");
+      
       setLoading(true);
       $("#videoTitle").style.display = 'none';
       $("#videoBox").innerHTML = '';
@@ -285,16 +289,25 @@ async function fetchPersonas(){
         const res = await fetch(VIDEO_WEBHOOK, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          body: JSON.stringify({ persona_id: personaId })
+          body: JSON.stringify({ url, persona_id: personaId })
         });
         if (!res.ok) throw new Error(await res.text());
-        const { videos } = await res.json(); // expect { videos: ["vid1", "vid2", ...] }
+        const { videos, thread_id, assistant_id } = await res.json(); // expect { videos: ["vid1", "vid2", ...] }
 
         $("#videoTitle").style.display = 'block';
         $("#videoBox").innerHTML = videos
           .map(t => `<div class="advice">🎥 ${t}</div>`)
           .join('');
         location.hash = "#videoTitle";
+      
+        threadId    = thread_id;
+        assistantId = assistant_id;
+        activePersona = personaId;
+        addChatMessage('Persona', advice);
+
+        $("#chatTitle").style.display = 'block';
+        $("#chatForm").style.display = 'flex';
+        $("#chatInput").focus();
       } catch(e) {
         console.error(e);
         toast("Video error: " + e.message);
