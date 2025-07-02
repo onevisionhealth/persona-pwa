@@ -379,7 +379,7 @@ async function fetchPersonas(){
         });
         if (!res.ok) throw new Error(await res.text());
         const { answer } = await res.json();
-        addChatMessage('Persona', answer);
+        addChatMessage(window.activePersonaName, answer);
       } catch(e) {
         console.error(e);
         toast("Chat error");
