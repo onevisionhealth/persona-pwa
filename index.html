@@ -65,16 +65,16 @@
       color: #666;
       transition: transform 0.2s ease;
     }
-    .persona.expanded .expand-icon {
+    .persona.collapsed .expand-icon {
       transform: rotate(180deg);
     }
     .persona-details {
-      max-height: 0;
+      max-height: 200px;
       overflow: hidden;
       transition: max-height 0.3s ease;
     }
-    .persona.expanded .persona-details {
-      max-height: 200px;
+    .persona.collapsed .persona-details {
+      max-height: 0;
     }
     .small { font-size: .85rem; color: #555; }
     .improveBtn { background: #00994d; margin-top: .6rem; }
@@ -402,7 +402,7 @@ async function fetchPersonas(){
         // Handle persona card expand/collapse
         if (e.target.tagName === 'H3' || e.target.closest('h3')) {
           const personaCard = e.target.closest('.persona');
-          personaCard.classList.toggle('expanded');
+          personaCard.classList.toggle('collapsed');
           return;
         }
         
