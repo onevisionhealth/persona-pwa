@@ -186,7 +186,7 @@
     function addChatMessage(sender, text) {
       const label = sender === 'user'
         ? 'You'
-        : (window.activePersonaName || 'Persona');
+        : (sender || window.activePersonaName || 'Persona');
       const div = document.createElement('div');
       div.style.margin = '0.4rem 0';
       div.innerHTML = `<strong>${label}:</strong> ${text.replace(/\n/g,'<br>')}`;
