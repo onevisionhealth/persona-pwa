@@ -450,6 +450,7 @@ async function fetchPersonas(){
         activePersona = personaId;
         addChatMessage(personaName, videos.map(v => `🎥 ${v}`).join("\n"));
 
+        $("#chatTitle").textContent = `Chat with ${personaName}`;
         $("#chatTitle").style.display = 'block';
         $("#chatForm").style.display = 'flex';
         $("#chatInput").focus();
@@ -495,6 +496,7 @@ async function fetchPersonas(){
         activePersona = personaId;
         addChatMessage(personaName, advice);
 
+        $("#chatTitle").textContent = `Chat with ${personaName}`;
         $("#chatTitle").style.display = 'block';
         $("#chatForm").style.display = 'flex';
         $("#chatInput").focus();
