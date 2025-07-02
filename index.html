@@ -195,31 +195,47 @@
     }
 
     /* ---------- primary actions ---------- */
-    async function fetchPersonas() {
-      const url = $("#urlInput").value.trim();
-      if (!url) return toast("Please enter a URL");
-      setLoading(true);
-      $("#results").innerHTML = "";
-      $("#videoTitle, #advTitle, #chatTitle").forEach(id => $(id).style.display = 'none');
-      $("#videoBox, #adviceBox, #chatBox").forEach(id => $(id).innerHTML = '');
-      $("#chatForm").style.display = 'none';
+async function fetchPersonas(){
+  const url = $("#urlInput").value.trim();
+  if(!url) return toast("Please enter a URL");
 
-      try {
-        const res = await fetch(MATCH_WEBHOOK, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          body: JSON.stringify({ url })
-        });
-        if (!res.ok) throw new Error(await res.text());
-        const personas = await res.json();
-        renderPersonas(personas);
-      } catch(e) {
-        console.error(e);
-        toast("Error: " + e.message);
-      } finally {
-        setLoading(false);
-      }
+  setLoading(true);
+  try {
+    const res = await fetch(MATCH_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({url}),
+    });
+
+    // grab the raw text first
+    const text = await res.text();
+    console.log("🔍 raw webhook response:", text);
+
+    if (!res.ok) {
+      // if your webhook returns a JSON error, you can still see it here
+      throw new Error(`Got ${res.status}: ${text}`);
     }
+
+    // now parse it
+    let personas;
+    try {
+      personas = JSON.parse(text);
+    } catch(err) {
+      console.error("❌ invalid JSON:", err);
+      toast("Server returned invalid JSON—check console");
+      return;
+    }
+
+    renderPersonas(personas);
+
+  } catch(err) {
+    console.error(err);
+    toast("Error: " + err.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
 
     function renderPersonas(list) {
       const box = $("#results"); box.innerHTML = '';
