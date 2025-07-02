@@ -387,14 +387,15 @@ async function fetchPersonas(){
           <div class="persona-details">
             <p><strong>Goals:</strong> ${(p.goals || []).join('; ')}</p>
             <p><strong>Pain points:</strong> ${(p.pain_points || []).join('; ')}</p>
-            <button class="improveBtn" data-id="${p.id}" data-name="${p.name || p.id}">
-              Improve this page for ${(p.name || p.id).split(' ')[0]}
-            </button>
-            <button class="videoBtn" data-id="${p.id}">
-              Get video suggestions
-            </button>
           </div>
+          <button class="improveBtn" data-id="${p.id}" data-name="${p.name || p.id}">
+            Improve this page for ${(p.name || p.id).split(' ')[0]}
+          </button>
+          <button class="videoBtn" data-id="${p.id}">
+            Get video suggestions
+          </button>
         `;
+        el.className = 'persona collapsed';
         box.appendChild(el);
       });
 
