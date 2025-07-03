@@ -473,7 +473,8 @@ async function fetchPersonas(){
       const clickedBtn = event.target;
       setButtonLoading(clickedBtn, true);
       
-      $("#advTitle, #chatTitle").forEach(id => $(id).style.display = 'none');
+      $("#advTitle").style.display = 'none';
+      $("#chatTitle").style.display = 'none';
       $("#chatBox").innerHTML = '';
       $("#chatForm").style.display = 'none';
       showContentSpinner($("#adviceBox"), 'Getting recommendations...');
