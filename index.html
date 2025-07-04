@@ -69,12 +69,13 @@
       transform: rotate(180deg);
     }
     .persona-details {
-      max-height: 200px;
-      overflow: hidden;
+      max-height: none;
+      overflow: visible;
       transition: max-height 0.3s ease;
     }
     .persona.collapsed .persona-details {
       max-height: 0;
+      overflow: hidden;
     }
     .small { font-size: .85rem; color: #555; }
     .improveBtn { background: #00994d; margin-top: .6rem; }
