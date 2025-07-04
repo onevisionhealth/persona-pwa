@@ -380,6 +380,7 @@ async function fetchPersonas(){
               ${p.hasAssistant
                 ? '<svg class="assistant-badge" role="img" aria-label="Already has an assistant"><use href="#icon-robot"/></svg>'
                 : ''}
+              Dist: ${p.distance} -
               ${p.name || p.id}
             </span>
             <span class="expand-icon">▼</span>
