@@ -247,82 +247,6 @@
       <input id="chatInput" type="text" placeholder="Ask a follow-up question">
       <button type="submit">Send</button>
     </form>
-    
-    <script>
-    let pollInterval = null;
-    
-    async function pollAssistantReply(conversationId, afterTimestamp) {
-      if (pollInterval) clearInterval(pollInterval);
-    
-      pollInterval = setInterval(async () => {
-        try {
-          const res = await fetch(LATEST_REPLY_WEBHOOK, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...getAuthHeader()
-            },
-            body: JSON.stringify({ conversation_id: conversationId })
-          });
-    
-          const data = await res.json();
-    
-          if (data?.answer && new Date(data.created_at) > new Date(afterTimestamp)) {
-            addChatMessage('assistant', data.answer);
-            clearInterval(pollInterval);
-          }
-        } catch (err) {
-          console.error("Polling error:", err);
-        }
-      }, 3000);
-    }
-
-    
-    // Submit handler for chat form
-    $("#chatForm").addEventListener('submit', async e => {
-      e.preventDefault();
-      const msg = $("#chatInput").value.trim();
-      if (!msg) return;
-      if (!threadId || !assistantId || !activePersona) return toast("No active chat");
-    
-      const chatBtn = $("#chatForm button");
-      addChatMessage('user', msg);
-      $("#chatInput").value = '';
-      setButtonLoading(chatBtn, true, 'Send');
-    
-      const thinkingDiv = document.createElement('div');
-      thinkingDiv.style.margin = '0.4rem 0';
-      thinkingDiv.style.opacity = '0.7';
-      thinkingDiv.innerHTML = `<strong>${window.activePersonaName}:</strong> <span class="spinner"></span> Thinking...`;
-      $("#chatBox").appendChild(thinkingDiv);
-      $("#chatBox").scrollTop = $("#chatBox").scrollHeight;
-    
-      try {
-        const before = new Date().toISOString();
-        await fetch(CONTINUE_WEBHOOK, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          body: JSON.stringify({
-            thread_id: threadId,
-            assistant_id: assistantId,
-            user_message: msg,
-            persona_id: activePersona,
-            conversation_id: currentConversationId
-          })
-        });
-    
-        pollAssistantReply(threadId, before);
-      } catch (e) {
-        console.error(e);
-        toast("Chat error");
-      } finally {
-        thinkingDiv.remove();
-        setButtonLoading(chatBtn, false, 'Send');
-        $("#chatInput").focus();
-      }
-    });
-    </script>
-
     </div>
   </div>
 
@@ -622,53 +546,78 @@ async function fetchPersonas(){
       }
     }
 
-    /* ---------- follow-up chat ---------- */
+    let pollInterval = null;
+    
+    async function pollAssistantReply(conversationId, afterTimestamp) {
+      if (pollInterval) clearInterval(pollInterval);
+    
+      pollInterval = setInterval(async () => {
+        try {
+          const res = await fetch(LATEST_REPLY_WEBHOOK, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeader()
+            },
+            body: JSON.stringify({ conversation_id: conversationId })
+          });
+    
+          const data = await res.json();
+    
+          if (data?.answer && new Date(data.created_at) > new Date(afterTimestamp)) {
+            addChatMessage('assistant', data.answer);
+            clearInterval(pollInterval);
+          }
+        } catch (err) {
+          console.error("Polling error:", err);
+        }
+      }, 3000);
+    }
+    
+    // Submit handler for chat form
     $("#chatForm").addEventListener('submit', async e => {
       e.preventDefault();
       const msg = $("#chatInput").value.trim();
       if (!msg) return;
-      if (!threadId || !assistantId) return toast("No active chat");
-
+      if (!threadId || !assistantId || !activePersona) return toast("No active chat");
+    
       const chatBtn = $("#chatForm button");
       addChatMessage('user', msg);
       $("#chatInput").value = '';
-      
-      // Show loading state for chat
       setButtonLoading(chatBtn, true, 'Send');
-      
-      // Add a temporary "thinking" message
+    
       const thinkingDiv = document.createElement('div');
       thinkingDiv.style.margin = '0.4rem 0';
       thinkingDiv.style.opacity = '0.7';
       thinkingDiv.innerHTML = `<strong>${window.activePersonaName}:</strong> <span class="spinner"></span> Thinking...`;
       $("#chatBox").appendChild(thinkingDiv);
       $("#chatBox").scrollTop = $("#chatBox").scrollHeight;
-
+    
       try {
-        const res = await fetch(CONTINUE_WEBHOOK, {
+        const before = new Date().toISOString();
+        await fetch(CONTINUE_WEBHOOK, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
           body: JSON.stringify({
             thread_id: threadId,
             assistant_id: assistantId,
-            user_message: msg
+            user_message: msg,
+            persona_id: activePersona,
+            conversation_id: currentConversationId
           })
         });
-        if (!res.ok) throw new Error(await res.text());
-        const { answer } = await res.json();
-        
-        // Remove thinking message
-        thinkingDiv.remove();
-        addChatMessage(window.activePersonaName, answer);
-      } catch(e) {
+    
+        pollAssistantReply(threadId, before);
+      } catch (e) {
         console.error(e);
         toast("Chat error");
-        thinkingDiv.remove();
       } finally {
+        thinkingDiv.remove();
         setButtonLoading(chatBtn, false, 'Send');
         $("#chatInput").focus();
       }
     });
+
 
     /* ---------- initial wiring ---------- */
     $("#matchBtn").addEventListener('click', fetchPersonas);
