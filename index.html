@@ -251,24 +251,24 @@
     <script>
     let pollInterval = null;
     
-    async function pollSupabaseForReply(conversationId, afterTimestamp) {
+    async function pollAssistantReply(conversationId, afterTimestamp) {
       if (pollInterval) clearInterval(pollInterval);
     
       pollInterval = setInterval(async () => {
         try {
-          const res = await fetch(`https://YOUR_PROJECT_ID.supabase.co/rest/v1/messages?conversation_id=eq.${conversationId}&sender_type=eq.assistant&order=created_at.desc&limit=1`, {
+          const res = await fetch(LATEST_REPLY_WEBHOOK, {
+            method: 'POST',
             headers: {
-              ...getAuthHeader(),
-              'apikey': 'YOUR_SUPABASE_ANON_KEY',
-              'Authorization': 'Bearer YOUR_SUPABASE_ANON_KEY',
               'Content-Type': 'application/json',
-              'Prefer': 'return=representation'
-            }
+              ...getAuthHeader()
+            },
+            body: JSON.stringify({ conversation_id: conversationId })
           });
     
           const data = await res.json();
-          if (data.length && new Date(data[0].created_at) > new Date(afterTimestamp)) {
-            addChatMessage('assistant', data[0].content);
+    
+          if (data?.answer && new Date(data.created_at) > new Date(afterTimestamp)) {
+            addChatMessage('assistant', data.answer);
             clearInterval(pollInterval);
           }
         } catch (err) {
@@ -276,6 +276,7 @@
         }
       }, 3000);
     }
+
     
     // Submit handler for chat form
     $("#chatForm").addEventListener('submit', async e => {
@@ -310,7 +311,7 @@
           })
         });
     
-        pollSupabaseForReply(threadId, before);
+        pollAssistantReply(threadId, before);
       } catch (e) {
         console.error(e);
         toast("Chat error");
@@ -334,6 +335,7 @@
     //const CONTINUE_WEBHOOK  = "https://ovhpersonas.app.n8n.cloud/webhook/continue-chat";
     const CONTINUE_WEBHOOK  = "https://ovhpersonas.app.n8n.cloud/webhook/pollchat";
     const VIDEO_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/get-video-suggestions";
+    const LATEST_REPLY_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/get-latest-reply";
 
     /* ---------- globals ---------- */
     let threadId      = null;
