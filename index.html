@@ -341,6 +341,29 @@
     let threadId      = null;
     let assistantId   = null;
     let activePersona = null;
+    let currentConversationId = null;
+
+    // Load conversation_id from query string or localStorage
+    (function initConversationId() {
+      const params = new URLSearchParams(location.search);
+      if (params.has('start_new')) {
+        localStorage.removeItem('conversation_id');
+      }
+    
+      const queryId = params.get('conversation_id');
+      const storedId = localStorage.getItem('conversation_id');
+    
+      if (queryId) {
+        currentConversationId = queryId;
+        localStorage.setItem('conversation_id', currentConversationId);
+      } else if (storedId) {
+        currentConversationId = storedId;
+      } else {
+        // Will get set later after first message
+        currentConversationId = null;
+      }
+    })();
+
 
     /* ---------- DOM helpers ---------- */
     const $ = sel => document.querySelector(sel);
@@ -517,8 +540,13 @@ async function fetchPersonas(){
           body: JSON.stringify({ url, persona_id: personaId })
         });
         if (!res.ok) throw new Error(await res.text());
-        const { videos, thread_id, assistant_id } = await res.json();
-
+        const { videos, conversation_id, thread_id, assistant_id } = await res.json();
+        
+        if (conversation_id) {
+          currentConversationId = conversation_id;
+          localStorage.setItem('conversation_id', currentConversationId);
+        }
+        
         $("#videoTitle").style.display = 'block';
         $("#videoBox").innerHTML = videos
           .map(t => `<div class="advice">🎥 ${t}</div>`)
@@ -566,8 +594,12 @@ async function fetchPersonas(){
           body: JSON.stringify({ url, persona_id: personaId })
         });
         if (!res.ok) throw new Error(await res.text());
-        const { advice, thread_id, assistant_id } = await res.json();
-
+        const { advice, conversation_id, thread_id, assistant_id } = await res.json();
+        
+        if (conversation_id) {
+          currentConversationId = conversation_id;
+          localStorage.setItem('conversation_id', currentConversationId);
+        }
         $("#advTitle").style.display = 'block';
         $("#adviceBox").innerHTML = `<div class="advice">${advice}</div>`;
         location.hash = "#advTitle";
