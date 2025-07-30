@@ -305,7 +305,8 @@
             thread_id: threadId,
             assistant_id: assistantId,
             user_message: msg,
-            persona_id: activePersona
+            persona_id: activePersona,
+            conversation_id: currentConversationId
           })
         });
     
@@ -330,7 +331,8 @@
     /* ---------- configuration ---------- */
     const MATCH_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/match-personas";
     const ASSIST_WEBHOOK    = "https://ovhpersonas.app.n8n.cloud/webhook/improve-page";
-    const CONTINUE_WEBHOOK  = "https://ovhpersonas.app.n8n.cloud/webhook/continue-chat";
+    //const CONTINUE_WEBHOOK  = "https://ovhpersonas.app.n8n.cloud/webhook/continue-chat";
+    const CONTINUE_WEBHOOK  = "https://ovhpersonas.app.n8n.cloud/webhook/pollchat";
     const VIDEO_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/get-video-suggestions";
 
     /* ---------- globals ---------- */
