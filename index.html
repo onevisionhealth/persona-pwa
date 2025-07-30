@@ -622,7 +622,7 @@ async function fetchPersonas(){
           })
         });
     
-        pollAssistantReply(threadId, before);
+        pollAssistantReply(currentConversationId, before);
       } catch (e) {
         console.error(e);
         toast("Chat error");
