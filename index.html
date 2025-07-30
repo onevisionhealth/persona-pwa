@@ -260,6 +260,8 @@
     const CONTINUE_WEBHOOK  = "https://ovhpersonas.app.n8n.cloud/webhook/pollchat";
     const VIDEO_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/get-video-suggestions";
     const LATEST_REPLY_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/get-latest-reply";
+    const CREATE_ASSISTANT_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/create-or-update-assistant";
+    
 
     /* ---------- globals ---------- */
     let threadId      = null;
@@ -408,6 +410,10 @@ async function fetchPersonas(){
               Dist: ${p.distance} -
               ${p.name || p.id}
             </span>
+            <button class="assistantBtn" data-id="${p.id}">
+              Create or Update Assistant
+            </button>
+
             <span class="expand-icon">▼</span>
           </h3>
           <p class="small">${p.role || ''}</p>
@@ -441,6 +447,10 @@ async function fetchPersonas(){
         if (e.target.classList.contains('videoBtn')) {
           videoForPersona(e.target.dataset.id, e.target.dataset.name);
         }
+        if (e.target.classList.contains('assistantBtn')) {
+          createOrUpdateAssistant(e.target.dataset.id);
+        }
+
       };
     }
 
@@ -545,6 +555,34 @@ async function fetchPersonas(){
         setButtonLoading(clickedBtn, false);
       }
     }
+
+    async function createOrUpdateAssistant(personaId) {
+      const clickedBtn = event.target;
+      setButtonLoading(clickedBtn, true);
+    
+      try {
+        const res = await fetch(CREATE_ASSISTANT_WEBHOOK, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeader()
+          },
+          body: JSON.stringify({ persona_id: personaId })
+        });
+    
+        const text = await res.text();
+        if (!res.ok) throw new Error(text);
+    
+        const data = JSON.parse(text);
+        toast(`✅ Assistant ready: ${data.assistant_id || 'ID not returned'}`);
+      } catch (err) {
+        console.error("Assistant creation failed:", err);
+        toast("Error: " + err.message);
+      } finally {
+        setButtonLoading(clickedBtn, false);
+      }
+    }
+
 
     let pollInterval = null;
     
