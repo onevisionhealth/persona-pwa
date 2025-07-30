@@ -242,11 +242,85 @@
 
       <h2 id="chatTitle" style="display:none">Chat with this Persona</h2>
       <div id="chatBox"></div>
+  
+    <form id="chatForm" style="display:none">
+      <input id="chatInput" type="text" placeholder="Ask a follow-up question">
+      <button type="submit">Send</button>
+    </form>
+    
+    <script>
+    let pollInterval = null;
+    
+    async function pollSupabaseForReply(conversationId, afterTimestamp) {
+      if (pollInterval) clearInterval(pollInterval);
+    
+      pollInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`https://YOUR_PROJECT_ID.supabase.co/rest/v1/messages?conversation_id=eq.${conversationId}&sender_type=eq.assistant&order=created_at.desc&limit=1`, {
+            headers: {
+              ...getAuthHeader(),
+              'apikey': 'YOUR_SUPABASE_ANON_KEY',
+              'Authorization': 'Bearer YOUR_SUPABASE_ANON_KEY',
+              'Content-Type': 'application/json',
+              'Prefer': 'return=representation'
+            }
+          });
+    
+          const data = await res.json();
+          if (data.length && new Date(data[0].created_at) > new Date(afterTimestamp)) {
+            addChatMessage('assistant', data[0].content);
+            clearInterval(pollInterval);
+          }
+        } catch (err) {
+          console.error("Polling error:", err);
+        }
+      }, 3000);
+    }
+    
+    // Submit handler for chat form
+    $("#chatForm").addEventListener('submit', async e => {
+      e.preventDefault();
+      const msg = $("#chatInput").value.trim();
+      if (!msg) return;
+      if (!threadId || !assistantId || !activePersona) return toast("No active chat");
+    
+      const chatBtn = $("#chatForm button");
+      addChatMessage('user', msg);
+      $("#chatInput").value = '';
+      setButtonLoading(chatBtn, true, 'Send');
+    
+      const thinkingDiv = document.createElement('div');
+      thinkingDiv.style.margin = '0.4rem 0';
+      thinkingDiv.style.opacity = '0.7';
+      thinkingDiv.innerHTML = `<strong>${window.activePersonaName}:</strong> <span class="spinner"></span> Thinking...`;
+      $("#chatBox").appendChild(thinkingDiv);
+      $("#chatBox").scrollTop = $("#chatBox").scrollHeight;
+    
+      try {
+        const before = new Date().toISOString();
+        await fetch(CONTINUE_WEBHOOK, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({
+            thread_id: threadId,
+            assistant_id: assistantId,
+            user_message: msg,
+            persona_id: activePersona
+          })
+        });
+    
+        pollSupabaseForReply(threadId, before);
+      } catch (e) {
+        console.error(e);
+        toast("Chat error");
+      } finally {
+        thinkingDiv.remove();
+        setButtonLoading(chatBtn, false, 'Send');
+        $("#chatInput").focus();
+      }
+    });
+    </script>
 
-      <form id="chatForm" style="display:none">
-        <input id="chatInput" type="text" placeholder="Ask a follow-up question">
-        <button>Send</button>
-      </form>
     </div>
   </div>
 
