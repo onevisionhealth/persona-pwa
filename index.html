@@ -410,12 +410,13 @@ async function fetchPersonas(){
               Dist: ${p.distance} -
               ${p.name || p.id}
             </span>
-            <button class="assistantBtn" data-id="${p.id}">
-              Create or Update Assistant
-            </button>
 
             <span class="expand-icon">▼</span>
           </h3>
+          
+            <button class="assistantBtn" data-id="${p.id}">
+              Create or Update Assistant
+            </button>
           <p class="small">${p.role || ''}</p>
           <div class="persona-details">
             <p><strong>Goals:</strong> ${(p.goals || []).join('; ')}</p>
