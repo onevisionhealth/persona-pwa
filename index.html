@@ -154,6 +154,10 @@
       cursor: pointer;
       background: #fff;
     }
+    .assistant.active {
+      background: #e0f7ff;
+      border-color: #0fa;
+    }
     #videoBox .advice {
       margin: .5rem 0;
     }
@@ -297,6 +301,7 @@
     let activePersona = null;
     let currentConversationId = null;
     let selectedPersonas = [];
+    const personaSessions = {};
 
     // Load conversation_id from query string or localStorage
     (function initConversationId() {
@@ -513,6 +518,9 @@ async function fetchPersonas(){
         threadId    = thread_id;
         assistantId = assistant_id;
         activePersona = personaId;
+
+        personaSessions[personaId] = { assistantId, threadId };
+        renderAssistants();
         addChatMessage(personaName, videos.map(v => `🎥 ${v}`).join("\n"));
 
         $("#chatTitle").textContent = `Chat with ${personaName}`;
@@ -563,6 +571,9 @@ async function fetchPersonas(){
         threadId    = thread_id;
         assistantId = assistant_id;
         activePersona = personaId;
+
+        personaSessions[personaId] = { assistantId, threadId };
+        renderAssistants();
         addChatMessage(personaName, advice);
 
         $("#chatTitle").textContent = `Chat with ${personaName}`;
@@ -611,6 +622,11 @@ async function fetchPersonas(){
         const data = JSON.parse(text);
         toast(`✅ Assistant ready: ${data.assistant_id || 'ID not returned'}`);
 
+        personaSessions[personaId] = {
+          assistantId: data.assistant_id || null,
+          threadId: personaSessions[personaId]?.threadId || null
+        };
+
         // Update button label
         clickedBtn.textContent = 'Update Assistant';
         const card = clickedBtn.closest('.persona');
@@ -648,12 +664,22 @@ async function fetchPersonas(){
         selectedPersonas.push({ id, name });
         if (btn) btn.textContent = 'Deselect';
       }
+      if (!activePersona && selectedPersonas.length) {
+        activePersona = selectedPersonas[0].id;
+        window.activePersonaName = selectedPersonas[0].name;
+        if (personaSessions[activePersona]) {
+          assistantId = personaSessions[activePersona].assistantId;
+          threadId = personaSessions[activePersona].threadId;
+        }
+      }
       renderAssistants();
     }
 
     function renderAssistants() {
       const box = $("#assistants");
-      box.innerHTML = selectedPersonas.map(p => `<span class="assistant" data-id="${p.id}" data-name="${p.name}">${p.name}</span>`).join('');
+      box.innerHTML = selectedPersonas.map(p =>
+        `<span class="assistant${p.id===activePersona?' active':''}" data-id="${p.id}" data-name="${p.name}">${p.name}</span>`
+      ).join('');
     }
 
 
@@ -754,6 +780,11 @@ async function fetchPersonas(){
       if (e.target.classList.contains('assistant')) {
         activePersona = e.target.dataset.id;
         window.activePersonaName = e.target.dataset.name;
+        if (personaSessions[activePersona]) {
+          assistantId = personaSessions[activePersona].assistantId;
+          threadId = personaSessions[activePersona].threadId;
+        }
+        renderAssistants();
         toast(`Active persona: ${e.target.dataset.name}`);
       }
     });
