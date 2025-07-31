@@ -269,8 +269,6 @@
   <h2 id="videoTitle" style="display:none">Video Suggestions</h2>
   <div id="videoBox"></div>
 
-  <h2 id="advTitle" style="display:none">Recommendations</h2>
-  <div id="adviceBox"></div>
 
   <h2 id="chatTitle" style="display:none">Chat with this Persona</h2>
   <div id="chatBox"></div>
@@ -540,11 +538,10 @@ async function fetchPersonas(){
       const clickedBtn = event.target;
       setButtonLoading(clickedBtn, true);
       
-      $("#advTitle").style.display = 'none';
       $("#chatTitle").style.display = 'none';
       $("#chatBox").innerHTML = '';
       $("#chatForm").style.display = 'none';
-      showContentSpinner($("#adviceBox"), 'Getting recommendations...');
+      showContentSpinner($("#chatBox"), 'Loading response...');
 
       try {
         const res = await fetch(ASSIST_WEBHOOK, {
@@ -559,9 +556,9 @@ async function fetchPersonas(){
           currentConversationId = conversation_id;
           localStorage.setItem('conversation_id', currentConversationId);
         }
-        $("#advTitle").style.display = 'block';
-        $("#adviceBox").innerHTML = `<div class="advice">${advice}</div>`;
-        location.hash = "#advTitle";
+
+        $("#chatBox").innerHTML = '';
+        location.hash = "#chatTitle";
 
         threadId    = thread_id;
         assistantId = assistant_id;
@@ -575,7 +572,6 @@ async function fetchPersonas(){
       } catch(e) {
         console.error(e);
         toast("Error: " + e.message);
-        $("#adviceBox").innerHTML = '';
       } finally {
         setButtonLoading(clickedBtn, false);
       }
