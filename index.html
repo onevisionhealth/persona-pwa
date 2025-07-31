@@ -726,7 +726,7 @@ async function fetchPersonas(){
       const msg = $("#chatInput").value.trim();
       if (!msg) return;
       if (threadId == null || assistantId == null || !activePersona) {
-        return toast("No active chat session. Run "Improve" or "Get video suggestions" first.");
+        return toast("No active chat session. Run 'Improve' or 'Get video suggestions' first.");
       }
     
       const chatBtn = $("#chatForm button");
