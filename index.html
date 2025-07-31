@@ -416,6 +416,9 @@ async function fetchPersonas(){
       list.forEach(p => {
         const el = document.createElement('div');
         el.className = 'persona';
+        el.dataset.id = p.id;
+        el.dataset.name = p.name || p.id;
+        el.dataset.hasAssistant = p.hasAssistant;
         el.innerHTML = `
           <h3>
             <span>
@@ -428,9 +431,9 @@ async function fetchPersonas(){
 
             <span class="expand-icon">▼</span>
           </h3>
-          <button class="selectBtn" data-id="${p.id}" data-name="${p.name || p.id}">Select</button>
-          <button class="assistantBtn" data-id="${p.id}">
-            Create or Update Assistant
+          ${p.hasAssistant ? `<button class="selectBtn" data-id="${p.id}" data-name="${p.name || p.id}">${selectedPersonas.some(sp => sp.id === p.id) ? 'Deselect' : 'Select'}</button>` : ''}
+          <button class="assistantBtn" data-id="${p.id}" data-name="${p.name || p.id}">
+            ${p.hasAssistant ? 'Update Assistant' : 'Create Assistant'}
           </button>
           <p class="small">${p.role || ''}</p>
           <div class="persona-details">
@@ -464,10 +467,10 @@ async function fetchPersonas(){
           videoForPersona(e.target.dataset.id, e.target.dataset.name);
         }
         if (e.target.classList.contains('assistantBtn')) {
-          createOrUpdateAssistant(e.target.dataset.id);
+          createOrUpdateAssistant(e.target.dataset.id, e.target.dataset.name);
         }
         if (e.target.classList.contains('selectBtn')) {
-          selectPersona(e.target.dataset.id, e.target.dataset.name);
+          selectPersona(e.target.dataset.id, e.target.dataset.name, e.target);
         }
 
       };
@@ -589,7 +592,7 @@ async function fetchPersonas(){
       }
     }
 
-  async function createOrUpdateAssistant(personaId) {
+  async function createOrUpdateAssistant(personaId, personaName) {
       const clickedBtn = event.target;
       setButtonLoading(clickedBtn, true);
     
@@ -608,6 +611,27 @@ async function fetchPersonas(){
     
         const data = JSON.parse(text);
         toast(`✅ Assistant ready: ${data.assistant_id || 'ID not returned'}`);
+
+        // Update button label
+        clickedBtn.textContent = 'Update Assistant';
+        const card = clickedBtn.closest('.persona');
+        if (card) {
+          card.dataset.hasAssistant = 'true';
+          // add badge if missing
+          const h3span = card.querySelector('h3 span');
+          if (h3span && !card.querySelector('h3 svg.assistant-badge')) {
+            h3span.insertAdjacentHTML('afterbegin', '<svg class="assistant-badge" role="img" aria-label="Already has an assistant"><use href="#icon-robot"/></svg> ');
+          }
+          // add select button if not present
+          if (!card.querySelector('.selectBtn')) {
+            const selectBtn = document.createElement('button');
+            selectBtn.className = 'selectBtn';
+            selectBtn.dataset.id = personaId;
+            selectBtn.dataset.name = personaName;
+            selectBtn.textContent = 'Select';
+            clickedBtn.before(selectBtn);
+          }
+        }
       } catch (err) {
         console.error("Assistant creation failed:", err);
         toast("Error: " + err.message);
@@ -616,9 +640,15 @@ async function fetchPersonas(){
       }
     }
 
-    function selectPersona(id, name) {
-      if (selectedPersonas.find(p => p.id === id)) return;
-      selectedPersonas.push({ id, name });
+    function selectPersona(id, name, btn) {
+      const idx = selectedPersonas.findIndex(p => p.id === id);
+      if (idx !== -1) {
+        selectedPersonas.splice(idx, 1);
+        if (btn) btn.textContent = 'Select';
+      } else {
+        selectedPersonas.push({ id, name });
+        if (btn) btn.textContent = 'Deselect';
+      }
       renderAssistants();
     }
 
