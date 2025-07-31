@@ -78,8 +78,8 @@
       overflow: hidden;
     }
     .small { font-size: .85rem; color: #555; }
-    .improveBtn { background: #00994d; margin-top: .6rem; }
-    .videoBtn { background: #ff6600; margin-top: .4rem; margin-left: .5rem; }
+    .assistantBtn { background: #800080; margin-top: .6rem; }
+    .selectBtn { background: #0066ff; margin-top: .6rem; margin-right: .5rem; }
     .advice {
       white-space: pre-line;
       background: #fff;
@@ -440,12 +440,6 @@ async function fetchPersonas(){
             <p><strong>Goals:</strong> ${(p.goals || []).join('; ')}</p>
             <p><strong>Pain points:</strong> ${(p.pain_points || []).join('; ')}</p>
           </div>
-          <button class="improveBtn" data-id="${p.id}" data-name="${p.name || p.id}">
-            Improve this page for ${(p.name || p.id).split(' ')[0]}
-          </button>
-          <button class="videoBtn" data-id="${p.id}">
-            Get video suggestions
-          </button>
         `;
         el.className = 'persona collapsed';
         box.appendChild(el);
@@ -460,12 +454,6 @@ async function fetchPersonas(){
         }
 
         // Handle button clicks
-        if (e.target.classList.contains('improveBtn')) {
-          improveForPersona(e.target.dataset.id, e.target.dataset.name);
-        }
-        if (e.target.classList.contains('videoBtn')) {
-          videoForPersona(e.target.dataset.id, e.target.dataset.name);
-        }
         if (e.target.classList.contains('assistantBtn')) {
           createOrUpdateAssistant(e.target.dataset.id, e.target.dataset.name);
         }
