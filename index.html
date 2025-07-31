@@ -301,7 +301,7 @@
     let activePersona = null;
     let currentConversationId = null;
     let selectedPersonas = [];
-    const personaSessions = {};
+    const personaAssistants = {};
 
     // Load conversation_id from query string or localStorage
     (function initConversationId() {
@@ -519,7 +519,7 @@ async function fetchPersonas(){
         assistantId = assistant_id;
         activePersona = personaId;
 
-        personaSessions[personaId] = { assistantId, threadId };
+        personaAssistants[personaId] = assistant_id;
         renderAssistants();
         addChatMessage(personaName, videos.map(v => `🎥 ${v}`).join("\n"));
 
@@ -572,7 +572,7 @@ async function fetchPersonas(){
         assistantId = assistant_id;
         activePersona = personaId;
 
-        personaSessions[personaId] = { assistantId, threadId };
+        personaAssistants[personaId] = assistant_id;
         renderAssistants();
         addChatMessage(personaName, advice);
 
@@ -622,10 +622,7 @@ async function fetchPersonas(){
         const data = JSON.parse(text);
         toast(`✅ Assistant ready: ${data.assistant_id || 'ID not returned'}`);
 
-        personaSessions[personaId] = {
-          assistantId: data.assistant_id || null,
-          threadId: personaSessions[personaId]?.threadId || null
-        };
+        personaAssistants[personaId] = data.assistant_id || null;
 
         // Update button label
         clickedBtn.textContent = 'Update Assistant';
@@ -667,13 +664,7 @@ async function fetchPersonas(){
       if (!activePersona && selectedPersonas.length) {
         activePersona = selectedPersonas[0].id;
         window.activePersonaName = selectedPersonas[0].name;
-        if (personaSessions[activePersona]) {
-          assistantId = personaSessions[activePersona].assistantId;
-          threadId = personaSessions[activePersona].threadId;
-        } else {
-          assistantId = null;
-          threadId = null;
-        }
+        assistantId = personaAssistants[activePersona] || null;
       }
       renderAssistants();
     }
@@ -735,7 +726,7 @@ async function fetchPersonas(){
       const msg = $("#chatInput").value.trim();
       if (!msg) return;
       if (threadId == null || assistantId == null || !activePersona) {
-        return toast("No active chat session. Start or resume a session.");
+        return toast("No active chat session. Run "Improve" or "Get video suggestions" first.");
       }
     
       const chatBtn = $("#chatForm button");
@@ -785,13 +776,15 @@ async function fetchPersonas(){
       if (e.target.classList.contains('assistant')) {
         activePersona = e.target.dataset.id;
         window.activePersonaName = e.target.dataset.name;
-        if (personaSessions[activePersona]) {
-          assistantId = personaSessions[activePersona].assistantId;
-          threadId = personaSessions[activePersona].threadId;
+        assistantId = personaAssistants[activePersona] || null;
+        if (threadId) {
+          $("#chatForm").style.display = 'flex';
         } else {
-          assistantId = null;
-          threadId = null;
+          $("#chatForm").style.display = 'none';
+          $("#chatBox").innerHTML = '';
         }
+        $("#chatTitle").textContent = `Chat with ${e.target.dataset.name}`;
+        $("#chatTitle").style.display = 'block';
         renderAssistants();
         toast(`Active persona: ${e.target.dataset.name}`);
       }
