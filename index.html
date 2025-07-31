@@ -670,6 +670,9 @@ async function fetchPersonas(){
         if (personaSessions[activePersona]) {
           assistantId = personaSessions[activePersona].assistantId;
           threadId = personaSessions[activePersona].threadId;
+        } else {
+          assistantId = null;
+          threadId = null;
         }
       }
       renderAssistants();
@@ -731,7 +734,9 @@ async function fetchPersonas(){
       e.preventDefault();
       const msg = $("#chatInput").value.trim();
       if (!msg) return;
-      if (!threadId || !assistantId || !activePersona) return toast("No active chat");
+      if (threadId == null || assistantId == null || !activePersona) {
+        return toast("No active chat session. Start or resume a session.");
+      }
     
       const chatBtn = $("#chatForm button");
       addChatMessage('user', msg);
@@ -783,6 +788,9 @@ async function fetchPersonas(){
         if (personaSessions[activePersona]) {
           assistantId = personaSessions[activePersona].assistantId;
           threadId = personaSessions[activePersona].threadId;
+        } else {
+          assistantId = null;
+          threadId = null;
         }
         renderAssistants();
         toast(`Active persona: ${e.target.dataset.name}`);
