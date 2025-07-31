@@ -116,14 +116,29 @@
       display: none;
     }
 
-    /* two-column layout */
-    #main {
+    /* carousel layout */
+    #carousel {
       display: flex;
       gap: 1rem;
-      margin-top: 1rem;
+      overflow-x: auto;
+      padding: 1rem 0;
     }
-    #results { flex: 1; }
-    #rightPanel { flex: 2; }
+    #carousel .persona {
+      flex: 0 0 220px;
+      margin-top: 0;
+    }
+    #assistants {
+      margin: 1rem 0;
+    }
+    .assistant {
+      display: inline-block;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: .4rem .6rem;
+      margin-right: .5rem;
+      cursor: pointer;
+      background: #fff;
+    }
     #videoBox .advice {
       margin: .5rem 0;
     }
@@ -225,30 +240,30 @@
   <h1>Persona Matcher</h1>
 
   <input id="pwdInput"  type="password" placeholder="What's the magic word?">
-  <input id="urlInput"  type="text"     placeholder="Paste a web-page URL">
-  <button id="matchBtn">Match personas</button>
+  <button id="matchBtn">Load personas</button>
 
-  <div id="main">
-    <!-- LEFT column: Persona list -->
-    <div id="results"></div>
+  <div id="carousel"></div>
+  <div id="assistants"></div>
 
-    <!-- RIGHT column: Video suggestions + advice + chat -->
-    <div id="rightPanel">
-      <h2 id="videoTitle" style="display:none">Video Suggestions</h2>
-      <div id="videoBox"></div>
-
-      <h2 id="advTitle" style="display:none">Recommendations</h2>
-      <div id="adviceBox"></div>
-
-      <h2 id="chatTitle" style="display:none">Chat with this Persona</h2>
-      <div id="chatBox"></div>
-  
-    <form id="chatForm" style="display:none">
-      <input id="chatInput" type="text" placeholder="Ask a follow-up question">
-      <button type="submit">Send</button>
-    </form>
-    </div>
+  <div id="urlRow">
+    <input id="urlInput"  type="text" placeholder="Paste a web-page URL">
+    <button id="improveSelected">Improve for selected</button>
+    <button id="videoSelected">Videos for selected</button>
   </div>
+
+  <h2 id="videoTitle" style="display:none">Video Suggestions</h2>
+  <div id="videoBox"></div>
+
+  <h2 id="advTitle" style="display:none">Recommendations</h2>
+  <div id="adviceBox"></div>
+
+  <h2 id="chatTitle" style="display:none">Chat with this Persona</h2>
+  <div id="chatBox"></div>
+
+  <form id="chatForm" style="display:none">
+    <input id="chatInput" type="text" placeholder="Ask a follow-up question">
+    <button type="submit">Send</button>
+  </form>
 
   <div id="toast"></div>
 
@@ -268,6 +283,7 @@
     let assistantId   = null;
     let activePersona = null;
     let currentConversationId = null;
+    let selectedPersonas = [];
 
     // Load conversation_id from query string or localStorage
     (function initConversationId() {
@@ -352,7 +368,6 @@
     /* ---------- primary actions ---------- */
 async function fetchPersonas(){
   const url = $("#urlInput").value.trim();
-  if(!url) return toast("Please enter a URL");
 
   setLoading(true);
   try {
@@ -393,7 +408,7 @@ async function fetchPersonas(){
 
 
     function renderPersonas(list) {
-      const box = $("#results"); box.innerHTML = '';
+      const box = $("#carousel"); box.innerHTML = '';
       if (!Array.isArray(list) || !list.length) {
         box.innerHTML = '<p>No matching personas.</p>';
         return;
@@ -413,10 +428,10 @@ async function fetchPersonas(){
 
             <span class="expand-icon">▼</span>
           </h3>
-          
-            <button class="assistantBtn" data-id="${p.id}">
-              Create or Update Assistant
-            </button>
+          <button class="selectBtn" data-id="${p.id}" data-name="${p.name || p.id}">Select</button>
+          <button class="assistantBtn" data-id="${p.id}">
+            Create or Update Assistant
+          </button>
           <p class="small">${p.role || ''}</p>
           <div class="persona-details">
             <p><strong>Goals:</strong> ${(p.goals || []).join('; ')}</p>
@@ -440,7 +455,7 @@ async function fetchPersonas(){
           personaCard.classList.toggle('collapsed');
           return;
         }
-        
+
         // Handle button clicks
         if (e.target.classList.contains('improveBtn')) {
           improveForPersona(e.target.dataset.id, e.target.dataset.name);
@@ -450,6 +465,9 @@ async function fetchPersonas(){
         }
         if (e.target.classList.contains('assistantBtn')) {
           createOrUpdateAssistant(e.target.dataset.id);
+        }
+        if (e.target.classList.contains('selectBtn')) {
+          selectPersona(e.target.dataset.id, e.target.dataset.name);
         }
 
       };
@@ -557,7 +575,21 @@ async function fetchPersonas(){
       }
     }
 
-    async function createOrUpdateAssistant(personaId) {
+    async function improveSelected() {
+      if (!selectedPersonas.length) return toast('Select a persona first');
+      for (const p of selectedPersonas) {
+        await improveForPersona(p.id, p.name);
+      }
+    }
+
+    async function videoSelected() {
+      if (!selectedPersonas.length) return toast('Select a persona first');
+      for (const p of selectedPersonas) {
+        await videoForPersona(p.id, p.name);
+      }
+    }
+
+  async function createOrUpdateAssistant(personaId) {
       const clickedBtn = event.target;
       setButtonLoading(clickedBtn, true);
     
@@ -582,6 +614,17 @@ async function fetchPersonas(){
       } finally {
         setButtonLoading(clickedBtn, false);
       }
+    }
+
+    function selectPersona(id, name) {
+      if (selectedPersonas.find(p => p.id === id)) return;
+      selectedPersonas.push({ id, name });
+      renderAssistants();
+    }
+
+    function renderAssistants() {
+      const box = $("#assistants");
+      box.innerHTML = selectedPersonas.map(p => `<span class="assistant" data-id="${p.id}" data-name="${p.name}">${p.name}</span>`).join('');
     }
 
 
@@ -675,6 +718,16 @@ async function fetchPersonas(){
 
     /* ---------- initial wiring ---------- */
     $("#matchBtn").addEventListener('click', fetchPersonas);
+    $("#pwdInput").addEventListener('change', fetchPersonas);
+    $("#improveSelected").addEventListener('click', improveSelected);
+    $("#videoSelected").addEventListener('click', videoSelected);
+    $("#assistants").addEventListener('click', e => {
+      if (e.target.classList.contains('assistant')) {
+        activePersona = e.target.dataset.id;
+        window.activePersonaName = e.target.dataset.name;
+        toast(`Active persona: ${e.target.dataset.name}`);
+      }
+    });
 
     /* auto-run if ?url=… */
     window.addEventListener('DOMContentLoaded', () => {
