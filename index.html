@@ -301,7 +301,7 @@
     let activePersona = null;
     let currentConversationId = null;
     let selectedPersonas = [];
-    const personaAssistants = {};
+    let personaAssistants = {};
 
     // Load conversation_id and thread_id from query string or localStorage
     (function initConversationId() {
@@ -420,7 +420,30 @@ async function fetchPersonas(){
       return;
     }
 
+    // Reset and repopulate assistant mappings
+    personaAssistants = {};
+    if (Array.isArray(personas)) {
+      personas.forEach(p => {
+        if (p.hasAssistant && p.assistant_id) {
+          personaAssistants[p.id] = p.assistant_id;
+        }
+      });
+    }
+
+    // Keep only personas with valid assistants in the selection
+    selectedPersonas = selectedPersonas.filter(p => personaAssistants[p.id]);
+    if (selectedPersonas.length) {
+      activePersona = selectedPersonas[0].id;
+      window.activePersonaName = selectedPersonas[0].name;
+      assistantId = personaAssistants[activePersona];
+    } else {
+      activePersona = null;
+      window.activePersonaName = null;
+      assistantId = null;
+    }
+
     renderPersonas(personas);
+    renderAssistants();
 
   } catch(err) {
     console.error(err);
@@ -443,12 +466,7 @@ async function fetchPersonas(){
         el.dataset.id = p.id;
         el.dataset.name = p.name || p.id;
         el.dataset.hasAssistant = p.hasAssistant;
-        
-        // ✅ Fix: store assistant_id for selectable personas
-        if (p.hasAssistant && p.id && p.assistant_id) {
-          personaAssistants[p.id] = p.assistant_id;
-        }
-        
+
         el.innerHTML = `
           <h3>
             <span>
@@ -695,9 +713,11 @@ async function fetchPersonas(){
 
     function renderAssistants() {
       const box = $("#assistants");
-      box.innerHTML = selectedPersonas.map(p =>
-        `<span class="assistant${p.id===activePersona?' active':''}" data-id="${p.id}" data-name="${p.name}">${p.name}</span>`
-      ).join('');
+      box.innerHTML = selectedPersonas
+        .filter(p => personaAssistants[p.id])
+        .map(p =>
+          `<span class="assistant${p.id===activePersona?' active':''}" data-id="${p.id}" data-name="${p.name}" data-assistant-id="${personaAssistants[p.id]}">${p.name}</span>`
+        ).join('');
     }
 
 
@@ -800,7 +820,7 @@ async function fetchPersonas(){
       if (e.target.classList.contains('assistant')) {
         activePersona = e.target.dataset.id;
         window.activePersonaName = e.target.dataset.name;
-        assistantId = personaAssistants[activePersona] || null;
+        assistantId = e.target.dataset.assistantId || null;
         if (!assistantId) {
           toast("This persona has no assistant yet.");
           return;
