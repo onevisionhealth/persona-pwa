@@ -708,10 +708,12 @@ async function fetchPersonas(){
 
     function selectPersona(id, name, btn) {
       const assistant = btn?.dataset.assistantId || personaAssistants[id];
+
       if (!assistant) {
         toast("This persona has no assistant yet.");
         return;
       }
+
       const idx = selectedPersonas.findIndex(p => p.id === id);
       if (idx !== -1) {
         selectedPersonas.splice(idx, 1);
