@@ -293,15 +293,14 @@
     const VIDEO_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/get-video-suggestions";
     const LATEST_REPLY_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/get-latest-reply";
     const CREATE_ASSISTANT_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/create-or-update-assistant";
+    const SELECT_PERSONA_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/select-persona";
     
 
     /* ---------- globals ---------- */
     let threadId      = null;
-    let assistantId   = null;
     let activePersona = null;
     let currentConversationId = null;
     let selectedPersonas = [];
-    let personaAssistants = {};
 
     // Load conversation_id and thread_id from query string or localStorage
     (function initConversationId() {
@@ -420,29 +419,17 @@ async function fetchPersonas(){
       return;
     }
 
-    // Reset and repopulate assistant mappings
-    personaAssistants = {};
-    if (Array.isArray(personas)) {
-      personas.forEach(p => {
-        const aId = p.assistant_id || p.assistantId;
-        if (p.hasAssistant && aId) {
-          personaAssistants[p.id] = aId;
-        }
-      });
-    }
+    // Keep only personas that still have assistants in the selection
+    selectedPersonas = selectedPersonas.filter(p =>
+      personas.some(sp => sp.id === p.id && sp.hasAssistant)
+    );
 
-    // Keep only personas with valid assistants in the selection
-    selectedPersonas = selectedPersonas
-      .map(p => ({ ...p, assistantId: personaAssistants[p.id] }))
-      .filter(p => p.assistantId);
     if (selectedPersonas.length) {
       activePersona = selectedPersonas[0].id;
       window.activePersonaName = selectedPersonas[0].name;
-      assistantId = selectedPersonas[0].assistantId;
     } else {
       activePersona = null;
       window.activePersonaName = null;
-      assistantId = null;
     }
 
     renderPersonas(personas);
@@ -482,7 +469,7 @@ async function fetchPersonas(){
 
             <span class="expand-icon">▼</span>
           </h3>
-          ${p.hasAssistant ? `<button class="selectBtn" data-id="${p.id}" data-name="${p.name || p.id}" data-assistant-id="${(p.assistant_id || p.assistantId) || ''}">${selectedPersonas.some(sp => sp.id === p.id) ? 'Deselect' : 'Select'}</button>` : ''}
+          ${p.hasAssistant ? `<button class="selectBtn" data-id="${p.id}" data-name="${p.name || p.id}">${selectedPersonas.some(sp => sp.id === p.id) ? 'Deselect' : 'Select'}</button>` : ''}
           <button class="assistantBtn" data-id="${p.id}" data-name="${p.name || p.id}">
             ${p.hasAssistant ? 'Update Assistant' : 'Create Assistant'}
           </button>
@@ -540,7 +527,7 @@ async function fetchPersonas(){
           })
         });
         if (!res.ok) throw new Error(await res.text());
-        const { videos, conversation_id, thread_id, assistant_id } = await res.json();
+        const { videos, conversation_id, thread_id } = await res.json();
         
         if (conversation_id) {
           currentConversationId = conversation_id;
@@ -555,10 +542,7 @@ async function fetchPersonas(){
       
         threadId    = thread_id;
         localStorage.setItem('thread_id', threadId);
-        assistantId = assistant_id;
         activePersona = personaId;
-
-        personaAssistants[personaId] = assistant_id;
         renderAssistants();
         addChatMessage(personaName, videos.map(v => `🎥 ${v}`).join("\n"));
 
@@ -602,7 +586,7 @@ async function fetchPersonas(){
           })
         });
         if (!res.ok) throw new Error(await res.text());
-        const { advice, conversation_id, thread_id, assistant_id } = await res.json();
+        const { advice, conversation_id, thread_id } = await res.json();
         
         if (conversation_id) {
           currentConversationId = conversation_id;
@@ -614,10 +598,7 @@ async function fetchPersonas(){
 
         threadId    = thread_id;
         localStorage.setItem('thread_id', threadId);
-        assistantId = assistant_id;
         activePersona = personaId;
-
-        personaAssistants[personaId] = assistant_id;
         renderAssistants();
         addChatMessage(personaName, advice);
 
@@ -665,15 +646,7 @@ async function fetchPersonas(){
         if (!res.ok) throw new Error(text);
     
         const data = JSON.parse(text);
-        toast(`✅ Assistant ready: ${data.assistant_id || 'ID not returned'}`);
-
-        personaAssistants[personaId] = data.assistant_id || null;
-
-        // Update any selected persona with new assistant ID
-        const selected = selectedPersonas.find(p => p.id === personaId);
-        if (selected) {
-          selected.assistantId = data.assistant_id || null;
-        }
+        toast('✅ Assistant ready');
 
         // Update button label
         clickedBtn.textContent = 'Update Assistant';
@@ -695,7 +668,6 @@ async function fetchPersonas(){
             selectBtn.textContent = 'Select';
             clickedBtn.before(selectBtn);
           }
-          selectBtn.dataset.assistantId = data.assistant_id || '';
         }
         renderAssistants();
       } catch (err) {
@@ -706,12 +678,15 @@ async function fetchPersonas(){
       }
     }
 
-    function selectPersona(id, name, btn) {
-      const assistant = btn?.dataset.assistantId || personaAssistants[id];
-
-      if (!assistant) {
-        toast("This persona has no assistant yet.");
-        return;
+    async function selectPersona(id, name, btn) {
+      try {
+        await fetch(SELECT_PERSONA_WEBHOOK, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ persona_id: id })
+        });
+      } catch (err) {
+        console.error('Persona selection failed:', err);
       }
 
       const idx = selectedPersonas.findIndex(p => p.id === id);
@@ -719,19 +694,17 @@ async function fetchPersonas(){
         selectedPersonas.splice(idx, 1);
         if (btn) btn.textContent = 'Select';
       } else {
-        selectedPersonas.push({ id, name, assistantId: assistant });
+        selectedPersonas.push({ id, name });
         if (btn) btn.textContent = 'Deselect';
       }
       if (selectedPersonas.length) {
         if (!activePersona || !selectedPersonas.some(p => p.id === activePersona)) {
           activePersona = selectedPersonas[0].id;
           window.activePersonaName = selectedPersonas[0].name;
-          assistantId = selectedPersonas[0].assistantId || null;
         }
       } else {
         activePersona = null;
         window.activePersonaName = null;
-        assistantId = null;
       }
       renderAssistants();
     }
@@ -739,9 +712,8 @@ async function fetchPersonas(){
     function renderAssistants() {
       const box = $("#assistants");
       box.innerHTML = selectedPersonas
-        .filter(p => p.assistantId)
         .map(p =>
-          `<span class="assistant${p.id===activePersona?' active':''}" data-id="${p.id}" data-name="${p.name}" data-assistant-id="${p.assistantId}">${p.name}</span>`
+          `<span class="assistant${p.id===activePersona?' active':''}" data-id="${p.id}" data-name="${p.name}">${p.name}</span>`
         ).join('');
     }
 
@@ -794,7 +766,7 @@ async function fetchPersonas(){
       e.preventDefault();
       const msg = $("#chatInput").value.trim();
       if (!msg) return;
-      if (threadId == null || assistantId == null || !activePersona) {
+      if (threadId == null || !activePersona) {
         return toast("No active chat session. Run 'Improve' or 'Get video suggestions' first.");
       }
     
@@ -817,7 +789,6 @@ async function fetchPersonas(){
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
           body: JSON.stringify({
             thread_id: threadId,
-            assistant_id: assistantId,
             user_message: msg,
             persona_id: activePersona,
             conversation_id: currentConversationId
@@ -845,11 +816,6 @@ async function fetchPersonas(){
       if (e.target.classList.contains('assistant')) {
         activePersona = e.target.dataset.id;
         window.activePersonaName = e.target.dataset.name;
-        assistantId = e.target.dataset.assistantId || null;
-        if (!assistantId) {
-          toast("This persona has no assistant yet.");
-          return;
-        }
         if (threadId) {
           $("#chatForm").style.display = 'flex';
         } else {
