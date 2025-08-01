@@ -679,16 +679,6 @@ async function fetchPersonas(){
     }
 
     async function selectPersona(id, name, btn) {
-      try {
-        await fetch(SELECT_PERSONA_WEBHOOK, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          body: JSON.stringify({ persona_id: id })
-        });
-      } catch (err) {
-        console.error('Persona selection failed:', err);
-      }
-
       const idx = selectedPersonas.findIndex(p => p.id === id);
       if (idx !== -1) {
         selectedPersonas.splice(idx, 1);
