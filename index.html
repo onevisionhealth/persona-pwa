@@ -424,18 +424,21 @@ async function fetchPersonas(){
     personaAssistants = {};
     if (Array.isArray(personas)) {
       personas.forEach(p => {
-        if (p.hasAssistant && p.assistant_id) {
-          personaAssistants[p.id] = p.assistant_id;
+        const aId = p.assistant_id || p.assistantId;
+        if (p.hasAssistant && aId) {
+          personaAssistants[p.id] = aId;
         }
       });
     }
 
     // Keep only personas with valid assistants in the selection
-    selectedPersonas = selectedPersonas.filter(p => personaAssistants[p.id]);
+    selectedPersonas = selectedPersonas
+      .map(p => ({ ...p, assistantId: personaAssistants[p.id] }))
+      .filter(p => p.assistantId);
     if (selectedPersonas.length) {
       activePersona = selectedPersonas[0].id;
       window.activePersonaName = selectedPersonas[0].name;
-      assistantId = personaAssistants[activePersona];
+      assistantId = selectedPersonas[0].assistantId;
     } else {
       activePersona = null;
       window.activePersonaName = null;
@@ -479,7 +482,7 @@ async function fetchPersonas(){
 
             <span class="expand-icon">▼</span>
           </h3>
-          ${p.hasAssistant ? `<button class="selectBtn" data-id="${p.id}" data-name="${p.name || p.id}">${selectedPersonas.some(sp => sp.id === p.id) ? 'Deselect' : 'Select'}</button>` : ''}
+          ${p.hasAssistant ? `<button class="selectBtn" data-id="${p.id}" data-name="${p.name || p.id}" data-assistant-id="${(p.assistant_id || p.assistantId) || ''}">${selectedPersonas.some(sp => sp.id === p.id) ? 'Deselect' : 'Select'}</button>` : ''}
           <button class="assistantBtn" data-id="${p.id}" data-name="${p.name || p.id}">
             ${p.hasAssistant ? 'Update Assistant' : 'Create Assistant'}
           </button>
@@ -666,6 +669,12 @@ async function fetchPersonas(){
 
         personaAssistants[personaId] = data.assistant_id || null;
 
+        // Update any selected persona with new assistant ID
+        const selected = selectedPersonas.find(p => p.id === personaId);
+        if (selected) {
+          selected.assistantId = data.assistant_id || null;
+        }
+
         // Update button label
         clickedBtn.textContent = 'Update Assistant';
         const card = clickedBtn.closest('.persona');
@@ -677,15 +686,18 @@ async function fetchPersonas(){
             h3span.insertAdjacentHTML('afterbegin', '<svg class="assistant-badge" role="img" aria-label="Already has an assistant"><use href="#icon-robot"/></svg> ');
           }
           // add select button if not present
-          if (!card.querySelector('.selectBtn')) {
-            const selectBtn = document.createElement('button');
+          let selectBtn = card.querySelector('.selectBtn');
+          if (!selectBtn) {
+            selectBtn = document.createElement('button');
             selectBtn.className = 'selectBtn';
             selectBtn.dataset.id = personaId;
             selectBtn.dataset.name = personaName;
             selectBtn.textContent = 'Select';
             clickedBtn.before(selectBtn);
           }
+          selectBtn.dataset.assistantId = data.assistant_id || '';
         }
+        renderAssistants();
       } catch (err) {
         console.error("Assistant creation failed:", err);
         toast("Error: " + err.message);
@@ -695,18 +707,29 @@ async function fetchPersonas(){
     }
 
     function selectPersona(id, name, btn) {
+      const assistant = btn?.dataset.assistantId || personaAssistants[id];
+      if (!assistant) {
+        toast("This persona has no assistant yet.");
+        return;
+      }
       const idx = selectedPersonas.findIndex(p => p.id === id);
       if (idx !== -1) {
         selectedPersonas.splice(idx, 1);
         if (btn) btn.textContent = 'Select';
       } else {
-        selectedPersonas.push({ id, name });
+        selectedPersonas.push({ id, name, assistantId: assistant });
         if (btn) btn.textContent = 'Deselect';
       }
-      if (!activePersona && selectedPersonas.length) {
-        activePersona = selectedPersonas[0].id;
-        window.activePersonaName = selectedPersonas[0].name;
-        assistantId = personaAssistants[activePersona] || null;
+      if (selectedPersonas.length) {
+        if (!activePersona || !selectedPersonas.some(p => p.id === activePersona)) {
+          activePersona = selectedPersonas[0].id;
+          window.activePersonaName = selectedPersonas[0].name;
+          assistantId = selectedPersonas[0].assistantId || null;
+        }
+      } else {
+        activePersona = null;
+        window.activePersonaName = null;
+        assistantId = null;
       }
       renderAssistants();
     }
@@ -714,9 +737,9 @@ async function fetchPersonas(){
     function renderAssistants() {
       const box = $("#assistants");
       box.innerHTML = selectedPersonas
-        .filter(p => personaAssistants[p.id])
+        .filter(p => p.assistantId)
         .map(p =>
-          `<span class="assistant${p.id===activePersona?' active':''}" data-id="${p.id}" data-name="${p.name}" data-assistant-id="${personaAssistants[p.id]}">${p.name}</span>`
+          `<span class="assistant${p.id===activePersona?' active':''}" data-id="${p.id}" data-name="${p.name}" data-assistant-id="${p.assistantId}">${p.name}</span>`
         ).join('');
     }
 
