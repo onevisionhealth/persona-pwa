@@ -726,7 +726,7 @@ async function fetchPersonas(){
             return;
           }
     
-          if (data?.answer && new Date(data.created_at) > new Date(afterTimestamp)) {
+          if (data?.answer && new Date(data.created_at) >= new Date(afterTimestamp)) {
             addChatMessage('assistant', data.answer);
             clearInterval(pollInterval);
           }
