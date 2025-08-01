@@ -293,6 +293,7 @@
     const VIDEO_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/get-video-suggestions";
     const LATEST_REPLY_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/get-latest-reply";
     const CREATE_ASSISTANT_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/create-or-update-assistant";
+    const SELECT_PERSONA_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/select-persona";
     
 
     /* ---------- globals ---------- */
@@ -678,7 +679,6 @@ async function fetchPersonas(){
     }
 
     async function selectPersona(id, name, btn) {
-
       const idx = selectedPersonas.findIndex(p => p.id === id);
       if (idx !== -1) {
         selectedPersonas.splice(idx, 1);
