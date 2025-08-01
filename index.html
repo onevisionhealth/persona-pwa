@@ -443,6 +443,12 @@ async function fetchPersonas(){
         el.dataset.id = p.id;
         el.dataset.name = p.name || p.id;
         el.dataset.hasAssistant = p.hasAssistant;
+        
+        // ✅ Fix: store assistant_id for selectable personas
+        if (p.hasAssistant && p.id && p.assistant_id) {
+          personaAssistants[p.id] = p.assistant_id;
+        }
+        
         el.innerHTML = `
           <h3>
             <span>
@@ -795,6 +801,10 @@ async function fetchPersonas(){
         activePersona = e.target.dataset.id;
         window.activePersonaName = e.target.dataset.name;
         assistantId = personaAssistants[activePersona] || null;
+        if (!assistantId) {
+          toast("This persona has no assistant yet.");
+          return;
+        }
         if (threadId) {
           $("#chatForm").style.display = 'flex';
         } else {
