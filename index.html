@@ -303,16 +303,17 @@
     let selectedPersonas = [];
     const personaAssistants = {};
 
-    // Load conversation_id from query string or localStorage
+    // Load conversation_id and thread_id from query string or localStorage
     (function initConversationId() {
       const params = new URLSearchParams(location.search);
       if (params.has('start_new')) {
         localStorage.removeItem('conversation_id');
+        localStorage.removeItem('thread_id');
       }
-    
+
       const queryId = params.get('conversation_id');
       const storedId = localStorage.getItem('conversation_id');
-    
+
       if (queryId) {
         currentConversationId = queryId;
         localStorage.setItem('conversation_id', currentConversationId);
@@ -321,6 +322,11 @@
       } else {
         // Will get set later after first message
         currentConversationId = null;
+      }
+
+      const storedThread = localStorage.getItem('thread_id');
+      if (storedThread) {
+        threadId = storedThread;
       }
     })();
 
@@ -499,7 +505,12 @@ async function fetchPersonas(){
         const res = await fetch(VIDEO_WEBHOOK, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          body: JSON.stringify({ url, persona_id: personaId })
+          body: JSON.stringify({
+            url,
+            persona_id: personaId,
+            conversation_id: currentConversationId,
+            thread_id: threadId
+          })
         });
         if (!res.ok) throw new Error(await res.text());
         const { videos, conversation_id, thread_id, assistant_id } = await res.json();
@@ -516,6 +527,7 @@ async function fetchPersonas(){
         location.hash = "#videoTitle";
       
         threadId    = thread_id;
+        localStorage.setItem('thread_id', threadId);
         assistantId = assistant_id;
         activePersona = personaId;
 
@@ -555,7 +567,12 @@ async function fetchPersonas(){
         const res = await fetch(ASSIST_WEBHOOK, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          body: JSON.stringify({ url, persona_id: personaId })
+          body: JSON.stringify({
+            url,
+            persona_id: personaId,
+            conversation_id: currentConversationId,
+            thread_id: threadId
+          })
         });
         if (!res.ok) throw new Error(await res.text());
         const { advice, conversation_id, thread_id, assistant_id } = await res.json();
@@ -569,6 +586,7 @@ async function fetchPersonas(){
         location.hash = "#chatTitle";
 
         threadId    = thread_id;
+        localStorage.setItem('thread_id', threadId);
         assistantId = assistant_id;
         activePersona = personaId;
 
