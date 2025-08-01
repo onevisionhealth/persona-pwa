@@ -424,8 +424,9 @@ async function fetchPersonas(){
     personaAssistants = {};
     if (Array.isArray(personas)) {
       personas.forEach(p => {
-        if (p.hasAssistant && p.assistant_id) {
-          personaAssistants[p.id] = p.assistant_id;
+        const aId = p.assistant_id || p.assistantId;
+        if (p.hasAssistant && aId) {
+          personaAssistants[p.id] = aId;
         }
       });
     }
@@ -481,7 +482,7 @@ async function fetchPersonas(){
 
             <span class="expand-icon">▼</span>
           </h3>
-          ${p.hasAssistant ? `<button class="selectBtn" data-id="${p.id}" data-name="${p.name || p.id}" data-assistant-id="${p.assistant_id || ''}">${selectedPersonas.some(sp => sp.id === p.id) ? 'Deselect' : 'Select'}</button>` : ''}
+          ${p.hasAssistant ? `<button class="selectBtn" data-id="${p.id}" data-name="${p.name || p.id}" data-assistant-id="${(p.assistant_id || p.assistantId) || ''}">${selectedPersonas.some(sp => sp.id === p.id) ? 'Deselect' : 'Select'}</button>` : ''}
           <button class="assistantBtn" data-id="${p.id}" data-name="${p.name || p.id}">
             ${p.hasAssistant ? 'Update Assistant' : 'Create Assistant'}
           </button>
@@ -707,6 +708,12 @@ async function fetchPersonas(){
 
     function selectPersona(id, name, btn) {
       const assistant = btn?.dataset.assistantId || personaAssistants[id];
+
+      if (!assistant) {
+        toast("This persona has no assistant yet.");
+        return;
+      }
+
       const idx = selectedPersonas.findIndex(p => p.id === id);
       if (idx !== -1) {
         selectedPersonas.splice(idx, 1);
