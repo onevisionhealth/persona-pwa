@@ -424,7 +424,7 @@
       list
         .slice()
         .sort((a, b) => b.score - a.score)
-        .forEach(({score, paper_url, paper_title, question, answer, venue, source, year}) => {
+        .forEach(({score, paper_url, paper_title, question, answer, venue, year}) => {
           const row = document.createElement('tr');
           const pct = typeof score === 'number'
             ? `${(score <= 1 ? score * 100 : score).toFixed(0)}%`
@@ -436,7 +436,7 @@
             <td style="padding:4px 8px;">${pct}</td>
             <td style="padding:4px 8px;"><a href="${paper_url || '#'}" target="_blank">${paper_title || ''}</a></td>
             <td style="padding:4px 8px;">${qa}</td>
-            <td style="padding:4px 8px;">${source || venue || ''}</td>
+            <td style="padding:4px 8px;">${venue || ''}</td>
             <td style="padding:4px 8px;">${year || ''}</td>`;
           tbody.appendChild(row);
         });
