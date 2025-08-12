@@ -398,6 +398,7 @@
     }
 
     function renderCitations(list) {
+      if (!Array.isArray(list)) list = [];
       const box = $("#citationResults");
       box.innerHTML = "";
       list
@@ -840,8 +841,8 @@ async function fetchPersonas(){
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
           body: JSON.stringify({ text: query })
         });
-        const citations = await res.json(); // [{score, paper_url, paper_title, year, venue, question, answer, specialty: []}, ...]
-        renderCitations(citations);
+        const data = await res.json();   // [ { result: [...], status: 'ok', ... } ]
+        renderCitations(Array.isArray(data) ? data.flatMap(o => o.result || []) : []);
       } catch (err) {
         console.error(err);
         toast('Citation lookup failed');
