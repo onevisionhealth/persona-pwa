@@ -857,14 +857,16 @@ async function fetchPersonas(){
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
           body: JSON.stringify({ text: query })
         });
-        const data = await res.json();   // { result: [...] } or [ { result: [...] } ]
+        const data = await res.json();   // may be {result:[]} or [{json:{result:[]}}]
         const arr = Array.isArray(data) ? data : [data];
-        const results = arr.flatMap(o =>
-          (o.result || []).map(({ score, payload }) => ({
+        const results = arr.flatMap(o => {
+          const items = o.result || o.json?.result || [];
+          return items.map(({ score, payload }) => ({
             score,
             ...(payload || {})
-          }))
-        );
+          }));
+        });
+        console.log('Citation results:', results);
         renderCitations(results);
       } catch (err) {
         console.error(err);
