@@ -842,7 +842,15 @@ async function fetchPersonas(){
           body: JSON.stringify({ text: query })
         });
         const data = await res.json();   // [ { result: [...], status: 'ok', ... } ]
-        renderCitations(Array.isArray(data) ? data.flatMap(o => o.result || []) : []);
+        const results = Array.isArray(data)
+          ? data.flatMap(o =>
+              (o.result || []).map(({ score, payload }) => ({
+                score,
+                ...(payload || {})
+              }))
+            )
+          : [];
+        renderCitations(results);
       } catch (err) {
         console.error(err);
         toast('Citation lookup failed');
