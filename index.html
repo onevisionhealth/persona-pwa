@@ -119,6 +119,14 @@
       border-radius: 4px;
     }
     #chatForm button { background: #0066ff; }
+    #citationForm input {
+      width: 80%;
+      padding: .6rem;
+      border: 1px solid #bbb;
+      border-radius: 4px;
+    }
+    #citationForm button { background: #0066ff; }
+    .citation { margin: .5rem 0; }
     #toast {
       position: fixed;
       bottom: 1rem;
@@ -278,6 +286,12 @@
     <button type="submit">Send</button>
   </form>
 
+  <form id="citationForm">
+    <input id="citationInput" type="text" placeholder="Enter text for citation search">
+    <button id="citationBtn" type="submit">Get Citations</button>
+  </form>
+  <div id="citationResults"></div>
+
   <div id="toast"></div>
 
   <script>
@@ -290,6 +304,7 @@
     const LATEST_REPLY_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/get-latest-reply";
     const CREATE_ASSISTANT_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/create-or-update-assistant";
     const SELECT_PERSONA_WEBHOOK     = "https://ovhpersonas.app.n8n.cloud/webhook/select-persona";
+    const CITATIONS_WEBHOOK = "https://ovhpersonas.app.n8n.cloud/webhook/get-citations";
     
 
     /* ---------- globals ---------- */
@@ -375,6 +390,31 @@
     function getActivePersonaName() {
       const persona = selectedPersonas.find(p => p.id === activePersona);
       return persona ? persona.name : 'assistant';
+    }
+
+    function sanitizeText(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function renderCitations(list) {
+      const box = $("#citationResults");
+      box.innerHTML = "";
+      list
+        .slice()
+        .sort((a, b) => b.score - a.score)
+        .forEach(({score, paper_url, paper_title, year, venue, question, answer, specialty}) => {
+          const row = document.createElement("div");
+          row.className = "citation";
+          row.innerHTML =
+            `${paper_title} (${year}). ${venue}. ` +
+            `<a href="${paper_url}" target="_blank">${paper_url}</a> — score: ${score}<br>` +
+            `<strong>Q:</strong> ${question}<br>` +
+            `<strong>A:</strong> ${answer}<br>` +
+            `<em>${(specialty || []).join(", ")}</em>`;
+          box.appendChild(row);
+        });
     }
 
     /* ---------- chat UI ---------- */
@@ -786,6 +826,28 @@ async function fetchPersonas(){
         thinkingDiv.remove();
         setButtonLoading(chatBtn, false, 'Send');
         $("#chatInput").focus();
+      }
+    });
+
+    $("#citationForm").addEventListener('submit', async e => {
+      e.preventDefault();
+      const raw = $("#citationInput").value.trim();
+      if (!raw) return;
+      const query = sanitizeText(raw);
+      setButtonLoading($("#citationBtn"), true, 'Get Citations');
+      try {
+        const res = await fetch(CITATIONS_WEBHOOK, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ text: query })
+        });
+        const citations = await res.json(); // [{score, paper_url, paper_title, year, venue, question, answer, specialty: []}, ...]
+        renderCitations(citations);
+      } catch (err) {
+        console.error(err);
+        toast('Citation lookup failed');
+      } finally {
+        setButtonLoading($("#citationBtn"), false, 'Get Citations');
       }
     });
 
