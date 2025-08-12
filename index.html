@@ -513,9 +513,6 @@ async function fetchPersonas(){
       const clickedBtn = event.target;
       setButtonLoading(clickedBtn, true);
       
-      $("#videoTitle").style.display = 'none';
-      showContentSpinner($("#videoBox"), 'Getting video suggestions...');
-      
       try {
         const res = await fetch(VIDEO_WEBHOOK, {
           method: 'POST',
