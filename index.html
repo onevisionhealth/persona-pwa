@@ -270,10 +270,6 @@
     <button id="videoSelected">Videos for selected</button>
   </div>
 
-  <h2 id="videoTitle" style="display:none">Video Suggestions</h2>
-  <div id="videoBox"></div>
-
-
   <h2 id="chatTitle" style="display:none">Chat with this Persona</h2>
   <div id="chatBox"></div>
 
@@ -539,12 +535,6 @@ async function fetchPersonas(){
           localStorage.setItem('conversation_id', currentConversationId);
         }
         
-        $("#videoTitle").style.display = 'block';
-        $("#videoBox").innerHTML = videos
-          .map(t => `<div class="advice">🎥 ${t}</div>`)
-          .join('');
-        location.hash = "#videoTitle";
-      
         threadId    = thread_id;
         localStorage.setItem('thread_id', threadId);
         activePersona = personaId;
