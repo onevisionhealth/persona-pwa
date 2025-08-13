@@ -681,17 +681,13 @@ async function fetchPersonas(){
     }
 
     async function improveSelected() {
-      if (!selectedPersonas.length) return toast('Select a persona first');
-      for (const p of selectedPersonas) {
-        await improveForPersona(p.id, p.name);
-      }
+      if (!activePersona) return toast('Select a persona first');
+      await improveForPersona(activePersona, getActivePersonaName());
     }
 
     async function videoSelected() {
-      if (!selectedPersonas.length) return toast('Select a persona first');
-      for (const p of selectedPersonas) {
-        await videoForPersona(p.id, p.name);
-      }
+      if (!activePersona) return toast('Select a persona first');
+      await videoForPersona(activePersona, getActivePersonaName());
     }
 
   async function createOrUpdateAssistant(personaId, personaName) {
