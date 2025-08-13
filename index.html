@@ -287,10 +287,16 @@
     <button type="submit">Send</button>
   </form>
 
-  <form id="citationForm">
-    <textarea id="citationInput" placeholder="Enter text for citation search" rows="2"></textarea>
-    <button id="citationBtn" type="submit">Get Citations</button>
-  </form>
+    <form id="citationForm">
+      <fieldset>
+        <legend>Match against</legend>
+        <label><input type="radio" name="match-against" value="question"> Question</label>
+        <label><input type="radio" name="match-against" value="answer"> Answer</label>
+        <label><input type="radio" name="match-against" value="both" checked> Both</label>
+      </fieldset>
+      <textarea id="citationInput" placeholder="Enter text for citation search" rows="2"></textarea>
+      <button id="citationBtn" type="submit">Get Citations</button>
+    </form>
   <div id="citationResults"></div>
 
   <div id="toast"></div>
@@ -862,13 +868,14 @@ async function fetchPersonas(){
       const raw = $("#citationInput").value.trim();
       if (!raw) return;
       const query = sanitizeText(raw);
+      const matchAgainst = $('input[name="match-against"]:checked').value;
       setButtonLoading($("#citationBtn"), true, 'Get Citations');
       showContentSpinner($("#citationResults"), 'Searching citations...');
       try {
         const res = await fetch(CITATIONS_WEBHOOK, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          body: JSON.stringify({ text: query })
+          body: JSON.stringify({ text: query, match_against: matchAgainst })
         });
         const data = await res.json();   // may be {result:[]} or [{json:{result:[]}}]
         const arr = Array.isArray(data) ? data : [data];
