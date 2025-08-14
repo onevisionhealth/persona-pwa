@@ -772,44 +772,57 @@ async function fetchPersonas(){
 
     let pollInterval = null;
     
-    async function pollAssistantReply(conversationId, afterTimestamp) {
-        if (pollInterval) clearInterval(pollInterval);
+    function pollAssistantReply(conversationId, afterTimestamp, thinkingDiv) {
+      if (pollInterval) clearInterval(pollInterval);
+
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          clearInterval(pollInterval);
+          thinkingDiv?.remove();
+          reject(new Error('Polling timeout'));
+        }, 45000);
 
         pollInterval = setInterval(async () => {
-        try {
-          const res = await fetch(LATEST_REPLY_WEBHOOK, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...getAuthHeader()
-            },
-            body: JSON.stringify({ conversation_id: conversationId })
-          });
-    
-          const text = await res.text(); // <-- read as text first
-    
-          if (!res.ok || !text) {
-            console.warn("Empty or failed response:", res.status, text);
-            return;
-          }
-    
-          let data;
           try {
-            data = JSON.parse(text); // <-- safely parse
-          } catch (e) {
-            console.error("Invalid JSON returned:", text);
-            return;
-          }
-    
+            const res = await fetch(LATEST_REPLY_WEBHOOK, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeader()
+              },
+              body: JSON.stringify({ conversation_id: conversationId })
+            });
+
+            const text = await res.text(); // <-- read as text first
+
+            if (!res.ok || !text) {
+              console.warn("Empty or failed response:", res.status, text);
+              return;
+            }
+
+            let data;
+            try {
+              data = JSON.parse(text); // <-- safely parse
+            } catch (e) {
+              console.error("Invalid JSON returned:", text);
+              return;
+            }
+
             if (data?.answer && new Date(data.created_at) >= new Date(afterTimestamp)) {
               addChatMessage(getActivePersonaName(), data.answer);
               clearInterval(pollInterval);
+              clearTimeout(timeout);
+              thinkingDiv?.remove();
+              resolve();
             }
-    
-        } catch (err) {
-          console.error("Polling error:", err);
-        }
-      }, 3000);
+          } catch (err) {
+            clearInterval(pollInterval);
+            clearTimeout(timeout);
+            thinkingDiv?.remove();
+            reject(err);
+          }
+        }, 3000);
+      });
     }
 
     
@@ -847,13 +860,13 @@ async function fetchPersonas(){
             conversation_id: currentConversationId
           })
         });
-    
-        pollAssistantReply(currentConversationId, before);
+
+        await pollAssistantReply(currentConversationId, before, thinkingDiv);
       } catch (e) {
         console.error(e);
         toast("Chat error");
-      } finally {
         thinkingDiv.remove();
+      } finally {
         setButtonLoading(chatBtn, false, 'Send');
         $("#chatInput").focus();
       }
