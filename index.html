@@ -609,7 +609,8 @@ async function fetchPersonas(){
           })
         });
         if (!res.ok) throw new Error(await res.text());
-        const { videos, conversation_id, thread_id } = await res.json();
+        const data = await res.json();
+        const { videos, conversation_id, thread_id } = Array.isArray(data) ? data[0] : data;
         
         if (conversation_id) {
           currentConversationId = conversation_id;
@@ -620,7 +621,13 @@ async function fetchPersonas(){
         localStorage.setItem('thread_id', threadId);
         activePersona = personaId;
         renderAssistants();
-        addChatMessage(personaName, videos.map(v => `🎥 ${v}`).join("\n"));
+        const relevant = videos.filter(v => v.section !== 'irrelevant');
+        addChatMessage(
+          personaName,
+          relevant
+            .map(v => `🎥 ${v.title} (relevance: ${v.relevance}%, score: ${v.score})\n${v.answer}`)
+            .join("\n\n")
+        );
 
         $("#chatTitle").textContent = `Chat with ${personaName}`;
         $("#chatTitle").style.display = 'block';
