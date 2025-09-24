@@ -16,7 +16,7 @@
       color: #222;
     }
     h1 { font-size: 1.6rem; margin-top: 0; }
-    input[type=text], input[type=password] {
+    input[type=text], input[type=password], textarea {
       width: 100%;
       padding: .6rem;
       border: 1px solid #bbb;
@@ -44,11 +44,31 @@
     #urlRow {
       display: flex;
       gap: .5rem;
-      align-items: center;
+      align-items: flex-start;
+      flex-wrap: wrap;
     }
-    #urlRow input {
-      flex: 1;
-      width: auto;
+    #urlRow .input-wrapper {
+      flex: 1 1 100%;
+    }
+    #urlRow .input-wrapper > * {
+      width: 100%;
+    }
+    #urlRow textarea {
+      min-height: 140px;
+      resize: vertical;
+    }
+    .input-mode-toggle {
+      display: flex;
+      gap: .75rem;
+      margin-top: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .input-mode-toggle label {
+      display: flex;
+      align-items: center;
+      gap: .3rem;
+      font-size: .9rem;
     }
     #matchBtn:disabled {
       background: #8cb3ff;
@@ -61,17 +81,15 @@
       padding: 1rem;
       margin-top: 1rem;
     }
-    .persona h3 { 
-      margin: 0 0 .3rem; 
-      font-size: 1.1rem; 
+    .persona h3 {
+      margin: 0 0 .3rem;
+      font-size: 1.1rem;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
     .persona h3:hover {
-      background: #f8f9fa;
-      margin: -0.5rem;
       padding: 0.5rem;
       border-radius: 4px;
     }
@@ -273,12 +291,21 @@
   <div id="carousel"></div>
   <div id="assistants"></div>
 
+  <div class="input-mode-toggle" role="group" aria-label="Select input type">
+  <div class="input-mode-toggle" role="group" aria-label="Select input type">
+    <label><input type="radio" name="input-mode" value="url" checked> URL</label>
+    <label><input type="radio" name="input-mode" value="content"> Text snippet</label>
+  </div>
   <div id="urlRow">
-    <input id="urlInput"  type="text" placeholder="Paste a web-page URL">
+    <div class="input-wrapper" data-mode="url">
+      <input id="urlInput"  type="text" placeholder="Paste a web-page URL">
+    </div>
+    <div class="input-wrapper" data-mode="content" hidden>
+      <textarea id="contentInput" placeholder="Paste content or notes" rows="5"></textarea>
+    </div>
     <button id="improveSelected">Get opinion</button>
     <button id="videoSelected">Get Video suggestions</button>
   </div>
-
   <h2 id="chatTitle" style="display:none">Chat with this Persona</h2>
   <div id="chatBox"></div>
 
@@ -408,12 +435,43 @@
       }
     }
 
-    function sanitizeText(str) {
-      const div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
+    function getInputMode() {
+      const selected = document.querySelector('input[name="input-mode"]:checked');
+      return selected ? selected.value : 'url';
     }
 
+    function getInputState() {
+      const mode = getInputMode();
+      if (mode === 'content') {
+        return { mode, value: $('#contentInput')?.value.trim() || '' };
+      }
+      return { mode: 'url', value: $('#urlInput')?.value.trim() || '' };
+    }
+
+    function createInputPayload(extra = {}) {
+      const { mode, value } = getInputState();
+      if (!value) {
+        toast(mode === 'url' ? 'Enter a URL first' : 'Paste some text first');
+        return null;
+      }
+      const payload = { input_mode: mode, url: '', content: '', ...extra };
+      if (mode === 'content') {
+        payload.content = value;
+      } else {
+        payload.url = value;
+      }
+      return payload;
+    }
+    function updateInputVisibility() {
+      const mode = getInputMode();
+      document.querySelectorAll('#urlRow .input-wrapper').forEach(wrapper => {
+        if (wrapper.dataset.mode === mode) {
+          wrapper.removeAttribute('hidden');
+        } else {
+          wrapper.setAttribute('hidden', 'hidden');
+        }
+      });
+    }
     function renderCitations(list) {
       const box = $("#citationResults");
       if (!Array.isArray(list) || list.length === 0) {
@@ -475,22 +533,22 @@
 
     /* ---------- primary actions ---------- */
 async function fetchPersonas(){
-  const url = $("#urlInput").value.trim();
+  const payload = createInputPayload();
+  if (!payload) {
+    return;
+  }
 
   setLoading(true);
   try {
     const res = await fetch(MATCH_WEBHOOK, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-      body: JSON.stringify({url}),
+      body: JSON.stringify(payload),
     });
-
-    // grab the raw text first
     const text = await res.text();
-    console.log("🔍 raw webhook response:", text);
+    console.log("?? raw webhook response:", text);
 
     if (!res.ok) {
-      // if your webhook returns a JSON error, you can still see it here
       throw new Error(`Got ${res.status}: ${text}`);
     }
 
@@ -499,8 +557,8 @@ async function fetchPersonas(){
     try {
       personas = JSON.parse(text);
     } catch(err) {
-      console.error("❌ invalid JSON:", err);
-      toast("Server returned invalid JSON—check console");
+      console.error("? invalid JSON:", err);
+      toast("Server returned invalid JSON-check console");
       return;
     }
 
@@ -508,15 +566,6 @@ async function fetchPersonas(){
     selectedPersonas = selectedPersonas.filter(p =>
       personas.some(sp => sp.id === p.id && sp.hasAssistant)
     );
-
-    if (selectedPersonas.length) {
-      activePersona = selectedPersonas[0].id;
-      window.activePersonaName = selectedPersonas[0].name;
-    } else {
-      activePersona = null;
-      window.activePersonaName = null;
-    }
-
     renderPersonas(personas);
     renderAssistants();
 
@@ -527,8 +576,6 @@ async function fetchPersonas(){
     setLoading(false);
   }
 }
-
-
     function renderPersonas(list) {
       const box = $("#carousel"); box.innerHTML = '';
       if (!Array.isArray(list) || !list.length) {
@@ -552,7 +599,7 @@ async function fetchPersonas(){
               ${p.name || p.id}
             </span>
 
-            <span class="expand-icon">▼</span>
+            <span class="expand-icon">?</span>
           </h3>
           ${p.hasAssistant ? `<button class="selectBtn" data-id="${p.id}" data-name="${p.name || p.id}">${selectedPersonas.some(sp => sp.id === p.id) ? 'Deselect' : 'Select'}</button>` : ''}
           <button class="assistantBtn" data-id="${p.id}" data-name="${p.name || p.id}">
@@ -590,33 +637,34 @@ async function fetchPersonas(){
     /* ---------- NEW: video suggestions ---------- */
     async function videoForPersona(personaId, personaName) {
       window.activePersonaName = personaName;
-      const url = $("#urlInput").value.trim();
-      if (!url) return toast("Enter a URL first");
-      
+      const payload = createInputPayload({
+        persona_id: personaId,
+        conversation_id: currentConversationId,
+        thread_id: threadId
+      });
+      if (!payload) {
+        return;
+      }
+
       // Find the clicked button and show loading state
       const clickedBtn = event.target;
       setButtonLoading(clickedBtn, true);
-      
+
       try {
         const res = await fetch(VIDEO_WEBHOOK, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          body: JSON.stringify({
-            url,
-            persona_id: personaId,
-            conversation_id: currentConversationId,
-            thread_id: threadId
-          })
+          body: JSON.stringify(payload)
         });
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
         const { videos, conversation_id, thread_id } = Array.isArray(data) ? data[0] : data;
-        
+
         if (conversation_id) {
           currentConversationId = conversation_id;
           localStorage.setItem('conversation_id', currentConversationId);
         }
-        
+
         threadId    = thread_id;
         localStorage.setItem('thread_id', threadId);
         activePersona = personaId;
@@ -625,7 +673,7 @@ async function fetchPersonas(){
         addChatMessage(
           personaName,
           relevant
-            .map(v => `🎥 ${v.title} (relevance: ${v.relevance}%, score: ${v.score})\n${v.answer}`)
+            .map(v => `?? ${v.title} (relevance: ${v.relevance}%, score: ${v.score})\n${v.answer}`)
             .join("\n\n")
         );
 
@@ -641,17 +689,22 @@ async function fetchPersonas(){
         setButtonLoading(clickedBtn, false);
       }
     }
-
     /* ---------- existing improveForPersona ---------- */
     async function improveForPersona(personaId, personaName) {
       window.activePersonaName = personaName;
-      const url = $("#urlInput").value.trim();
-      if (!url) return toast("Enter a URL first");
+      const payload = createInputPayload({
+        persona_id: personaId,
+        conversation_id: currentConversationId,
+        thread_id: threadId
+      });
+      if (!payload) {
+        return;
+      }
 
       // Find the clicked button and show loading state
       const clickedBtn = event.target;
       setButtonLoading(clickedBtn, true);
-      
+
       $("#chatTitle").style.display = 'none';
       $("#chatBox").innerHTML = '';
       $("#chatForm").style.display = 'none';
@@ -661,16 +714,11 @@ async function fetchPersonas(){
         const res = await fetch(ASSIST_WEBHOOK, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          body: JSON.stringify({
-            url,
-            persona_id: personaId,
-            conversation_id: currentConversationId,
-            thread_id: threadId
-          })
+          body: JSON.stringify(payload)
         });
         if (!res.ok) throw new Error(await res.text());
         const { advice, conversation_id, thread_id } = await res.json();
-        
+
         if (conversation_id) {
           currentConversationId = conversation_id;
           localStorage.setItem('conversation_id', currentConversationId);
@@ -696,7 +744,6 @@ async function fetchPersonas(){
         setButtonLoading(clickedBtn, false);
       }
     }
-
     async function improveSelected() {
       if (!activePersona) return toast('Select a persona first');
       await improveForPersona(activePersona, getActivePersonaName());
@@ -725,7 +772,7 @@ async function fetchPersonas(){
         if (!res.ok) throw new Error(text);
     
         const data = JSON.parse(text);
-        toast('✅ Assistant ready');
+        toast('? Assistant ready');
 
         // Update button label
         clickedBtn.textContent = 'Update Assistant';
@@ -926,6 +973,15 @@ async function fetchPersonas(){
 
 
     /* ---------- initial wiring ---------- */
+    document.querySelectorAll('input[name="input-mode"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        updateInputVisibility();
+        const target = radio.value === 'url' ? $("#urlInput") : $("#contentInput");
+        target?.focus();
+      });
+    });
+
+    updateInputVisibility();
     $("#matchBtn").addEventListener('click', fetchPersonas);
     $("#pwdInput").addEventListener('change', fetchPersonas);
     $("#improveSelected").addEventListener('click', improveSelected);
@@ -949,11 +1005,24 @@ async function fetchPersonas(){
 
     renderAssistants();
 
-    /* auto-run if ?url=… */
+    /* auto-run if ?url=. */
     window.addEventListener('DOMContentLoaded', () => {
-      const u = new URLSearchParams(location.search).get('url');
-      if (u) {
-        $("#urlInput").value = u;
+      const params = new URLSearchParams(location.search);
+      const urlParam = params.get('url');
+      const contentParam = params.get('content');
+
+      if (contentParam) {
+        document.querySelector('input[name="input-mode"][value="content"]').checked = true;
+        updateInputVisibility();
+        $("#contentInput").value = contentParam;
+        fetchPersonas();
+        return;
+      }
+
+      if (urlParam) {
+        document.querySelector('input[name="input-mode"][value="url"]').checked = true;
+        updateInputVisibility();
+        $("#urlInput").value = urlParam;
         fetchPersonas();
       }
     });
