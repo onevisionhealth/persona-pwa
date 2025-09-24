@@ -307,12 +307,13 @@
       setButtonLoading(btn, on, 'Match personas');
     }
 
-    function buildInputPayload() {
+    function buildInputPayload(options = {}) {
+      const { allowEmpty = false } = options;
       const url = $("#urlInput").value.trim();
       const content = $("#textInput").value.trim();
       const input_mode = content ? 'text' : 'url';
 
-      if (!url && !content) {
+      if (!allowEmpty && !url && !content) {
         toast("Please enter a URL or paste some text");
         return null;
       }
@@ -343,7 +344,7 @@
 
     /* ---------- primary actions ---------- */
 async function fetchPersonas(){
-  const payload = buildInputPayload();
+  const payload = buildInputPayload({ allowEmpty: true });
   if (!payload) return;
 
   setLoading(true);
