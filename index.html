@@ -448,17 +448,25 @@
       return { mode: 'url', value: $('#urlInput')?.value.trim() || '' };
     }
 
-    function createInputPayload(extra = {}) {
+    function sanitizeText(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+    function createInputPayload(extra = {}, options = {}) {
+      const { requireValue = true } = options;
       const { mode, value } = getInputState();
-      if (!value) {
+      if (requireValue && !value) {
         toast(mode === 'url' ? 'Enter a URL first' : 'Paste some text first');
         return null;
       }
       const payload = { input_mode: mode, url: '', content: '', ...extra };
-      if (mode === 'content') {
-        payload.content = value;
-      } else {
-        payload.url = value;
+      if (value) {
+        if (mode === 'content') {
+          payload.content = value;
+        } else {
+          payload.url = value;
+        }
       }
       return payload;
     }
@@ -533,7 +541,7 @@
 
     /* ---------- primary actions ---------- */
 async function fetchPersonas(){
-  const payload = createInputPayload();
+  const payload = createInputPayload({}, { requireValue: false });
   if (!payload) {
     return;
   }
